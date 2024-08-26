@@ -1,0 +1,1 @@
+class CmdExecutionError(RuntimeError): pass

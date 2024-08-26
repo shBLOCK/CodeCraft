@@ -1,0 +1,2 @@
+flet==0.23.2
+websockets==12.0

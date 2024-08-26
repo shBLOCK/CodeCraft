@@ -1,0 +1,4 @@
+/venv/
+/temp/
+/examples/**/.codecraft/
+/examples/tmp_*.py

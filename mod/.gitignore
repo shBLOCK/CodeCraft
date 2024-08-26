@@ -1,0 +1,7 @@
+/build/
+/.gradle/
+/.kotlin/
+/out/
+/run/
+/runs/
+/run-data/
