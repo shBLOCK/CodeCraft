@@ -1,79 +1,125 @@
 //file:noinspection GroovyAssignabilityCheck
 
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     id("java-library")
     id("idea")
     id("maven-publish")
-    id("net.neoforged.gradle.userdev") version "$neoforge_gradle_version"
+    id("net.neoforged.moddev") version "$moddevgradle_version"
     id("org.jetbrains.kotlin.jvm") version "$kotlin_version"
-    id("io.ktor.plugin") version "$ktor_version"
 }
 
 version = mod_version
 group = mod_group_id
-
-repositories {
-    mavenLocal()
-    mavenCentral()
-
-    maven {
-        name = 'Kotlin for Forge'
-        url = 'https://thedarkcolour.github.io/KotlinForForge/'
-        content { includeGroup "thedarkcolour" }
-    }
-
-    maven { url "https://maven.shedaniel.me/" }
-
-    exclusiveContent {
-        forRepository {
-            maven {
-                url = "https://cursemaven.com"
-            }
-        }
-        filter {
-            includeGroup "curse.maven"
-        }
-    }
-
-    maven {
-        url "https://maven.squiddev.cc"
-        content {
-            includeGroup("cc.tweaked")
-        }
-    }
-}
-
-base {
-    archivesName = mod_id
-}
+base.archivesName = mod_id
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+compileKotlin.compilerOptions.jvmTarget = JvmTarget.JVM_21
 
-minecraft.accessTransformers.file rootProject.file("src/main/resources/META-INF/accesstransformer.cfg")
+
+neoForge {
+    version = neo_version
+
+    validateAccessTransformers = true
+
+    parchment {
+        minecraftVersion = parchment_minecraft_version
+        mappingsVersion = parchment_mapping_version
+    }
+
+    runs {
+        configureEach {
+            // The markers can be added/remove as needed separated by commas.
+            // "SCAN": For mods scan.
+            // "REGISTRIES": For firing of registry events.
+            // "REGISTRYDUMP": For getting the contents of all registries.
+            systemProperty 'forge.logging.markers', 'REGISTRIES'
+
+            logLevel = org.slf4j.event.Level.DEBUG
+        }
+
+        client {
+            client()
+            // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
+        server {
+            server()
+            programArgument '--nogui'
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
+//        // This run config launches GameTestServer and runs all registered gametests, then exits.
+//        // By default, the server will crash when no gametests are provided.
+//        // The gametest system is also enabled by default for other run configs under the /test command.
+//        gameTestServer {
+//            type = "gameTestServer"
+//            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+//        }
+
+        data {
+            data()
+            // example of overriding the workingDirectory set in configureEach above, uncomment if you want to use it
+            // workingDirectory project.file('run-data')
+
+            // Specify the modid for data generation, where to output the resulting resource, and where to look for existing resources.
+            programArguments.addAll '--mod', project.mod_id, '--all', '--output', file('src/generated/resources/').getAbsolutePath(), '--existing', file('src/main/resources/').getAbsolutePath()
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet(sourceSets.main)
+        }
+    }
+}
 
 configurations {
-    kotlinLib {
-        exclude(group: "org.jetbrains.kotlin", module: "kotlin-stdlib-jdk7")
-        exclude(group: "org.jetbrains.kotlin", module: "kotlin-stdlib-jdk8")
-        exclude(group: "org.jetbrains.kotlin", module: "kotlin-stdlib")
-        exclude(group: "org.jetbrains.kotlin", module: "kotlin-reflect")
-        exclude(group: "org.jetbrains.kotlinx", module: "kotlinx-coroutines-core-jvm")
-        exclude(group: "org.jetbrains.kotlinx", module: "kotlinx-coroutines-jdk8")
-        exclude(group: "io.netty", module: "netty-codec-http")
+    ktorLib {}
+
+    // Hack to fix netty dependency conflicts:
+    //     Force all configurations to use Minecraft's Netty versions
+
+    // get MC Netty modules
+    def mcNettyDeps = []
+    mcDepsGetter.extendsFrom(neoFormRuntimeDependenciesRuntimeClasspath)
+    mcDepsGetter.resolvedConfiguration.getResolvedArtifacts().each {
+        if (it.moduleVersion.id.group == "io.netty") {
+            println("MC Netty module: ${it.moduleVersion.id}")
+            mcNettyDeps.add(it.moduleVersion.id)
+        }
+    }
+
+    configureEach {
+        if (it != mcDepsGetter && !it.name.startsWith("neoForm")) {
+            // workaround the "XXX reads more than one module named netty.codec.http" error
+            exclude(group: "io.netty", module: "netty-codec-http")
+
+            // apply MC Netty modules
+            resolutionStrategy {
+                mcNettyDeps.each {
+                    force(it.toString())
+                }
+            }
+        }
     }
 }
 
 dependencies {
-    implementation("net.neoforged:neoforge:$neo_version")
-    implementation("thedarkcolour:kotlinforforge-neoforge:$kff_version")
+    // Use slim artifact of KFF
+    implementation("thedarkcolour:kotlinforforge-neoforge:$kff_version:slim")
 
     // Ktor
-    kotlinLib("io.ktor:ktor-server-core-jvm:$ktor_version")
-    kotlinLib("io.ktor:ktor-server-websockets-jvm:$ktor_version")
-    kotlinLib("io.ktor:ktor-server-netty-jvm:$ktor_version")
+    jarJar(ktorLib("io.ktor:ktor-server-core-jvm:$ktor_version"))
+    jarJar(ktorLib("io.ktor:ktor-server-websockets-jvm:$ktor_version"))
+    jarJar(ktorLib("io.ktor:ktor-server-netty-jvm:$ktor_version"))
 
-    configurations.kotlinLib.allDependencies.each { dependency ->
+    configurations.ktorLib.allDependencies.each { dependency ->
         dependencies.add("implementation", dependency)
+        // this also included the kotlin and kotlinx dependencies
+        additionalRuntimeClasspath(dependency)
     }
 
     // TheOneProbe
@@ -93,59 +139,33 @@ dependencies {
     runtimeOnly("cc.tweaked:cc-tweaked-$minecraft_version-forge:$cct_version")
 }
 
-subsystems {
-    parchment {
-        minecraftVersion = "$parchment_minecraft_version"
-        mappingsVersion = "$parchment_version"
+repositories {
+    mavenLocal()
+    mavenCentral()
+
+    maven {
+        name = 'Kotlin for Forge'
+        url = 'https://thedarkcolour.github.io/KotlinForForge/'
+        content { includeGroup "thedarkcolour" }
     }
-}
 
-runs {
-    configureEach {
-        // Recommended logging data for a userdev environment
-        // The markers can be added/remove as needed separated by commas.
-        // "SCAN": For mods scan.
-        // "REGISTRIES": For firing of registry events.
-        // "REGISTRYDUMP": For getting the contents of all registries.
-        systemProperty("forge.logging.markers", "REGISTRIES")
+    maven { url "https://maven.shedaniel.me/" }
 
-        systemProperty("forge.logging.console.level", "debug")
-
-        modSource(project.sourceSets.main)
-
-        dependencies {
-            project.configurations.kotlinLib.resolve().each {
-                println(it)
-            }
-            runtime(project.configurations.kotlinLib)
+    maven {
+        url "https://maven.squiddev.cc"
+        content {
+            includeGroup("cc.tweaked")
         }
     }
 
-    client {
-        // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
-        systemProperty("forge.enabledGameTestNamespaces", project.mod_id)
-    }
-
-    server {
-        systemProperty("forge.enabledGameTestNamespaces", project.mod_id)
-        programArgument("--nogui")
-    }
-
-    // This run config launches GameTestServer and runs all registered gametests, then exits.
-    // By default, the server will crash when no gametests are provided.
-    // The gametest system is also enabled by default for other run configs under the /test command.
-    gameTestServer {
-        systemProperty("forge.enabledGameTestNamespaces", project.mod_id)
-    }
-
-    data {
-        // example of overriding the workingDirectory set in configureEach above, uncomment if you want to use it
-        // workingDirectory project.file("run-data")
-
-        // Specify the modid for data generation, where to output the resulting resource, and where to look for existing resources.
-        programArguments.addAll("--mod", project.mod_id, "--all", "--output", file("src/generated/resources/").getAbsolutePath(), "--existing", file("src/main/resources/").getAbsolutePath())
+    maven {
+        url "https://cursemaven.com"
+        content {
+            includeGroup "curse.maven"
+        }
     }
 }
+
 
 // Include resources generated by data generators.
 sourceSets.main.resources { srcDir("src/generated/resources") }

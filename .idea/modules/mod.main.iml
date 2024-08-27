@@ -13,8 +13,7 @@
     </facet>
   </component>
   <component name="McpModuleSettings">
-    <option name="mappingFile" value="C:\Users\Public\Projects\CodeCraft\mod\build\neoForm\neoFormJoined1.21.1-20240808.144430\steps\mergeMappings\output.tsrg" />
-    <option name="minecraftVersion" value="21.1" />
+    <option name="minecraftVersion" value="1.21" />
     <option name="platformVersion" value="21.1.27" />
     <option name="srgType" value="TSRG" />
   </component>
