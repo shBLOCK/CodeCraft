@@ -62,7 +62,6 @@ neoForge {
 
         data {
             data()
-            // example of overriding the workingDirectory set in configureEach above, uncomment if you want to use it
             // workingDirectory project.file('run-data')
 
             // Specify the modid for data generation, where to output the resulting resource, and where to look for existing resources.
@@ -132,8 +131,7 @@ dependencies {
     ktorLib("io.ktor:ktor-server-websockets-jvm:$ktor_version")
     ktorLib("io.ktor:ktor-server-netty-jvm:$ktor_version")
 
-    def ktorNettyDeps = []
-
+    // Add dependencies to Jar-In-Jar
     configurations.ktorLib.resolvedConfiguration.resolvedArtifacts.each {
         def dep = it.moduleVersion.id
         if (dep in mcNettyDeps || dep.group == "org.slf4j") {
@@ -151,11 +149,9 @@ dependencies {
                 }
             }
         }
-
-        if (dep.group == "io.netty")
-            ktorNettyDeps.add(dep)
     }
 
+    // Configure Ktor libs for compilation & dev runtime
     configurations.ktorLib.allDependencies.each {
         implementation(it)
         additionalRuntimeClasspath(it)
