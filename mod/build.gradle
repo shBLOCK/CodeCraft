@@ -51,13 +51,14 @@ neoForge {
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
 
-//        // This run config launches GameTestServer and runs all registered gametests, then exits.
-//        // By default, the server will crash when no gametests are provided.
-//        // The gametest system is also enabled by default for other run configs under the /test command.
-//        gameTestServer {
-//            type = "gameTestServer"
-//            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
-//        }
+        /**
+         // This run config launches GameTestServer and runs all registered gametests, then exits.
+         // By default, the server will crash when no gametests are provided.
+         // The gametest system is also enabled by default for other run configs under the /test command.
+         gameTestServer {
+         type = "gameTestServer"
+         systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+         } */
 
         data {
             data()
@@ -76,50 +77,88 @@ neoForge {
     }
 }
 
+// Hack to fix Netty dependency conflicts: we simple force all configurations to use Minecraft's Netty versions
+
+def mcNettyVersion
+def mcNettyDeps = []
+configurations { mcDepsGetter {} }
+dependencies { mcDepsGetter("net.neoforged:minecraft-dependencies:$minecraft_version") }
+
 configurations {
     ktorLib {}
 
-    // Hack to fix netty dependency conflicts:
-    //     Force all configurations to use Minecraft's Netty versions
-
-    // get MC Netty modules
-    def mcNettyDeps = []
-    mcDepsGetter.extendsFrom(neoFormRuntimeDependenciesRuntimeClasspath)
+    // get MC Netty libs
     mcDepsGetter.resolvedConfiguration.getResolvedArtifacts().each {
         if (it.moduleVersion.id.group == "io.netty") {
-            println("MC Netty module: ${it.moduleVersion.id}")
+            println("MC Netty dependency: $it.moduleVersion.id")
             mcNettyDeps.add(it.moduleVersion.id)
         }
     }
 
-    configureEach {
-        if (it != mcDepsGetter && !it.name.startsWith("neoForm")) {
-            // workaround the "XXX reads more than one module named netty.codec.http" error
-            exclude(group: "io.netty", module: "netty-codec-http")
+    // get MC Netty version
+    mcNettyVersion = mcNettyDeps.getFirst().version
+    println("MC Netty version: $mcNettyVersion")
 
-            // apply MC Netty modules
+    configureEach { cfg ->
+        if (cfg != mcDepsGetter && !cfg.name.startsWith("neoForm")) {
+            // force MC Netty module versions
             resolutionStrategy {
                 mcNettyDeps.each {
                     force(it.toString())
                 }
+
+                // force all Netty modules to use MC's version; not needed and causes more problems
+                /** eachDependency {
+                 if (it.requested.group == "io.netty"
+                 && it.requested.name != "netty-transport-native-epoll") { // not sure why this one cause problems
+                 println("Forcing $it.requested.name on $cfg to $mcNettyVersion")
+                 it.useVersion(mcNettyVersion)
+                 }
+                 } */
             }
         }
     }
+
+    // Workaround confliction with Jar-In-Jar of CC-Tweaked
+    additionalRuntimeClasspath.exclude(group: "io.netty", module: "netty-codec-http")
 }
 
 dependencies {
-    // Use slim artifact of KFF
+    // Use slim artifact of KFF to avoid kotlin lib conflictions
     implementation("thedarkcolour:kotlinforforge-neoforge:$kff_version:slim")
 
     // Ktor
-    jarJar(ktorLib("io.ktor:ktor-server-core-jvm:$ktor_version"))
-    jarJar(ktorLib("io.ktor:ktor-server-websockets-jvm:$ktor_version"))
-    jarJar(ktorLib("io.ktor:ktor-server-netty-jvm:$ktor_version"))
+    ktorLib("io.ktor:ktor-server-core-jvm:$ktor_version")
+    ktorLib("io.ktor:ktor-server-websockets-jvm:$ktor_version")
+    ktorLib("io.ktor:ktor-server-netty-jvm:$ktor_version")
 
-    configurations.ktorLib.allDependencies.each { dependency ->
-        dependencies.add("implementation", dependency)
-        // this also included the kotlin and kotlinx dependencies
-        additionalRuntimeClasspath(dependency)
+    def ktorNettyDeps = []
+
+    configurations.ktorLib.resolvedConfiguration.resolvedArtifacts.each {
+        def dep = it.moduleVersion.id
+        if (dep in mcNettyDeps || dep.group == "org.slf4j") {
+            println("Ignoring $dep for Jar-In-Jar: included by MC")
+        } else if (dep.group == "org.jetbrains.kotlin" || dep.group == "org.jetbrains.kotlinx") {
+            println("Ignoring $dep for Jar-In-Jar: included by KFF")
+        } else if (dep.name == "annotations") {
+            println("Ignoring $dep for Jar-In-Jar: not needed for runtime")
+        } else {
+            println("Adding $dep to Jar-In-Jar")
+            jarJar("$dep.group:$dep.name") {
+                version {
+                    prefer(dep.version)
+                    strictly(dep.version) // soft requirement, allows for any version
+                }
+            }
+        }
+
+        if (dep.group == "io.netty")
+            ktorNettyDeps.add(dep)
+    }
+
+    configurations.ktorLib.allDependencies.each {
+        implementation(it)
+        additionalRuntimeClasspath(it)
     }
 
     // TheOneProbe
@@ -140,8 +179,8 @@ dependencies {
 }
 
 repositories {
-    mavenLocal()
     mavenCentral()
+    mavenLocal()
 
     maven {
         name = 'Kotlin for Forge'
@@ -165,7 +204,6 @@ repositories {
         }
     }
 }
-
 
 // Include resources generated by data generators.
 sourceSets.main.resources { srcDir("src/generated/resources") }
