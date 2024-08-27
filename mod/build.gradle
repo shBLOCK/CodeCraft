@@ -119,7 +119,8 @@ configurations {
     }
 
     // Workaround confliction with Jar-In-Jar of CC-Tweaked
-    additionalRuntimeClasspath.exclude(group: "io.netty", module: "netty-codec-http")
+    // THIS DOESN'T ACTUALLY WORK
+//    additionalRuntimeClasspath.exclude(group: "io.netty", module: "netty-codec-http")
 }
 
 dependencies {
@@ -171,7 +172,8 @@ dependencies {
     // CC:Tweaked
     compileOnly("cc.tweaked:cc-tweaked-$minecraft_version-core-api:$cct_version")
     compileOnly("cc.tweaked:cc-tweaked-$minecraft_version-forge-api:$cct_version")
-    runtimeOnly("cc.tweaked:cc-tweaked-$minecraft_version-forge:$cct_version")
+    // TODO: figure out how to avoid `netty-codec-http` (jar-in-jar) confliction
+//    runtimeOnly("cc.tweaked:cc-tweaked-$minecraft_version-forge:$cct_version")
 }
 
 repositories {
