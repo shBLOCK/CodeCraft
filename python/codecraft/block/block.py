@@ -55,6 +55,9 @@ class Block(Registered, metaclass=BlockMeta, registry_name="block", registry_typ
     def _all_properties(self) -> Iterable[str]:
         return itertools.chain(self._properties, self._extra_properties)
 
+    def _assigned_properties(self) -> Iterable[str]:
+        return iter(self._states)
+
     @final
     def __getitem__[T](self, name: str) -> T:
         return self._get_property(name).get(self)
@@ -67,4 +70,7 @@ class Block(Registered, metaclass=BlockMeta, registry_name="block", registry_typ
             self._get_property(name).set(self, value)
 
     def __repr__(self):
-        return f"Block(\"{self.reg_name}\")"  # TODO properties: eg. Block("minecraft:abc", p1=true, p2=1, p3=north)
+        prop_texts = []
+        for prop in self._assigned_properties():
+            prop_texts.append(f", {prop}={self[prop]}")
+        return f"Block(\"{self.reg_name}\"{"".join(prop_texts)})"
