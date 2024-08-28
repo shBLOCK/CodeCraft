@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from websockets.frames import CloseCode
 
-from codecraft.asyncio import set_task_name
+from codecraft.coro import set_task_name
 from codecraft.internal.error import NetworkError
 from codecraft.internal.msg.codecraft import CmdResultMsg
 from codecraft.internal.typing import dummy_for_ide

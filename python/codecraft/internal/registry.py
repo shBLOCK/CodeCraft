@@ -4,7 +4,7 @@ from abc import ABC
 from typing import TYPE_CHECKING, final, override
 
 from codecraft.internal.resource import ResLoc
-from codecraft.logging.logging import LOGGER
+from codecraft.log.log import LOGGER
 
 if TYPE_CHECKING:
     from typing import Self, ClassVar, Any

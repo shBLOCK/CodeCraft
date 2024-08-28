@@ -5,7 +5,7 @@ from typing import final, TYPE_CHECKING
 from codecraft.internal.resource import ResLoc
 from codecraft.internal.id_map import RegistryIdMap
 from codecraft.internal.meta_files import read_meta_file, write_meta_file
-from codecraft.logging.logging import LOGGER
+from codecraft.log.log import LOGGER
 from codecraft.internal.cmd.cmd import Cmd
 from codecraft.internal.msg.msg import Msg
 

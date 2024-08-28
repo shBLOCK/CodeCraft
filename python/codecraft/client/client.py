@@ -11,10 +11,10 @@ from websockets.frames import CloseCode, CLOSE_CODE_EXPLANATIONS
 from .id_maps import RegistryIdMaps
 from .msg_queue import MsgQueue
 from .connection import Connection
-from codecraft.logging.logging import LOGGER
+from codecraft.log.log import LOGGER
 from codecraft.internal.byte_buf import CCByteBuf
-from codecraft.asyncio import auto_async
-from codecraft.asyncio import set_task_name
+from codecraft.coro import auto_async
+from codecraft.coro import set_task_name
 from codecraft.internal.error import NetworkError, CmdError
 
 if TYPE_CHECKING:

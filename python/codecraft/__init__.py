@@ -1,17 +1,17 @@
-from . import logging
+from . import log
 
 # TODO: lazy module importing (see: https://github.com/pyglet/pyglet/blob/master/pyglet/__init__.py)
 
-logging.configure_logger("DEBUG")  # TODO: make logging configurable
+log.configure_logger("DEBUG")  # TODO: make logging configurable
 
 # noinspection PyProtectedMember
-logging._cc_init_begin()
+log._cc_init_begin()
 
-from . import asyncio
+from . import coro
 from . import block
 from . import client
 from . import entity
-from . import enum
+from . import enums
 from . import internal
 from . import item
 from . import world
@@ -19,4 +19,4 @@ from . import world
 from ._root import *
 
 # noinspection PyProtectedMember
-logging._cc_init_end()
+log._cc_init_end()

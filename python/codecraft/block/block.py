@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from collections.abc import Collection
     from typing import Any, Iterable, Optional
 
-    from codecraft.enum.bases import SerializableNamedEnum
+    from codecraft.enums.bases import SerializableNamedEnum
     from codecraft.internal import ResLocLike
 
 __all__ = (

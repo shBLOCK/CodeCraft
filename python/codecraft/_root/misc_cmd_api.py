@@ -1,4 +1,4 @@
-from codecraft.asyncio._asyncio import auto_async
+from codecraft.coro import auto_async
 from codecraft.client.client import CCClient
 from codecraft.internal.cmd.codecraft import SendSystemChatCmd
 
