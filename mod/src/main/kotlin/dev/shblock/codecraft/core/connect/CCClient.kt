@@ -12,16 +12,17 @@ import io.ktor.websocket.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.ClosedReceiveChannelException
 import kotlinx.coroutines.channels.ClosedSendChannelException
-import kotlinx.coroutines.channels.getOrElse
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import net.minecraft.core.Registry
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.server.MinecraftServer
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import java.lang.reflect.InvocationTargetException
 import kotlin.reflect.full.primaryConstructor
 
-class CCClient(private val session: WebSocketServerSession, mc: MinecraftServer) {
+class CCClient(private val session: DefaultWebSocketServerSession, mc: MinecraftServer) {
     var logger: Logger = LoggerFactory.getLogger(
         "CCClient(${session.call.request.local.remoteAddress}:${session.call.request.local.remotePort})"
     )
@@ -36,7 +37,7 @@ class CCClient(private val session: WebSocketServerSession, mc: MinecraftServer)
 
     companion object {
         private fun CCByteBuf.writeRegistryIdMapSyncPacket(registry: Registry<*>): CCByteBuf {
-            writeResLoc(registry.key().registry())
+            writeResLoc(registry.key().location())
             writeVarInt(registry.size())
             for (name in registry.keySet()) {
                 writeVarInt(registry.getId(name))
@@ -65,7 +66,7 @@ class CCClient(private val session: WebSocketServerSession, mc: MinecraftServer)
         if (!cached) {
             sendRaw(registrySyncPacket)
         }
-        logger.debug("Establish: registry sync complete")
+        logger.debug("Establish: registry sync packet sent")
     }
 
     suspend fun establish() {
@@ -73,8 +74,8 @@ class CCClient(private val session: WebSocketServerSession, mc: MinecraftServer)
 
         establishSyncRegistryIdMap()
 
-        if (!receiveRaw().readBool())
-            throw NetworkException("Client failed to establish")
+        if (!receiveRaw().readBool()) // client signals initialization complete
+            throw ClientException.ViolatedPolicy("Client signaled establishing failure")
 
         established = true
         logger.info("Established")
@@ -85,18 +86,20 @@ class CCClient(private val session: WebSocketServerSession, mc: MinecraftServer)
         if (!established) throw IllegalStateException("Not established")
     }
 
-    suspend fun close(code: CloseReason.Codes, message: String) {
+    suspend fun close(code: CloseReason.Codes, message: String): CloseReason {
         val reason = CloseReason(code, message)
         if (established) {
-            logger.info("Closing: ${code.name}, \"${message}\"")
-            session.close(reason)
-        } else {
-            logger.debug("close() called on already closed client with reason: {}", reason)
+            established = false
+            if (session.isActive) {
+                logger.info("Closing connection: ${code.name}, \"${message}\"")
+                session.close()
+            }
         }
+        return reason
     }
 
-    suspend fun close() {
-        close(
+    suspend fun close(): CloseReason {
+        return close(
             CloseReason.Codes.NORMAL,
             "No message"
         )
@@ -106,18 +109,31 @@ class CCClient(private val session: WebSocketServerSession, mc: MinecraftServer)
         session.launch { close(code, message) }
     }
 
-    fun queueClose() {
-        session.launch { close() }
+    private suspend fun onDisconnected(): Nothing {
+        val reason = session.closeReason.await()
+        if (reason != null) {
+            when (reason.code) {
+                CloseReason.Codes.NORMAL.code, CloseReason.Codes.GOING_AWAY.code
+                    -> throw ClientException.Disconnected(true, reason)
+
+                else -> {
+                    throw ClientException.Disconnected(false, reason)
+                }
+            }
+        } else {
+            throw ClientException.Disconnected(false, null)
+        }
     }
 
     private suspend fun sendRaw(buf: CCByteBuf) {
         try {
             session.send(buf)
         } catch (e: ClosedSendChannelException) {
-            throw NetworkException("Send failed (closed): ${e.message}", e)
+            onDisconnected()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            if (e is CancellationException) throw e
-            throw NetworkException("Send failed: $e", e)
+            throw ClientException.Internal("Send failed: $e", e)
         }
     }
 
@@ -128,22 +144,27 @@ class CCClient(private val session: WebSocketServerSession, mc: MinecraftServer)
     }
 
     private suspend fun receiveRaw(): CCByteBuf {
-        val result = session.incoming.receiveCatching()
-        val frame = result.getOrElse {
-            if (it is ClosedReceiveChannelException) {
-                throw NetworkException("Receive failed (closed): ${it.message}", it)
-            } else if (it != null) {
-                throw NetworkException("Receive failed: $it", it)
-            } else {
-                throw NetworkException("Receive failed")
-            }
+        val frame = try {
+            session.incoming.receive()
+        } catch (e: ClosedReceiveChannelException) {
+            onDisconnected()
         }
-        return CCByteBuf(frame.data)
+
+        try {
+            return CCByteBuf(frame.data)
+        } catch (e: Exception) {
+            throw ClientException.Internal("Receive failed: $e", e)
+        }
     }
 
     fun sendMsg(msg: Msg) { // TODO batching
         ensureEstablished()
-        session.launch { sendRaw { msg.write(context, this@sendRaw) } }
+        session.launch {
+            sendRaw {
+                writeUsingRegistry(msg::class, CCRegistry.MSG_REGISTRY)
+                msg.write(context, this@sendRaw)
+            }
+        }
     }
 
     internal suspend fun loop() {
@@ -153,54 +174,88 @@ class CCClient(private val session: WebSocketServerSession, mc: MinecraftServer)
                 val buf = receiveRaw()
 
                 while (buf.readableBytes > 0) {
-                    val cmdId = buf.readVarInt()
-
-                    val cmdClass = CCRegistry.CMD_REGISTRY.byId(cmdId)
-                    if (cmdClass == null) {
-                        close(
-                            CloseReason.Codes.VIOLATED_POLICY,
-                            "Invalid cmd id: $cmdId"
-                        )
-                        return
-                    }
-
                     val cmd = try {
+                        val cmdClass = buf.readUsingRegistryOrThrow(CCRegistry.CMD_REGISTRY).value()
                         cmdClass.primaryConstructor!!.call(context, buf)
-                    } catch (e: CCDecodingException) {
-                        close(
-                            CloseReason.Codes.VIOLATED_POLICY,
-                            "Error while parsing command: $e"
-                        )
-                        return
-                    } catch (e: Exception) {
-                        close(
-                            CloseReason.Codes.INTERNAL_ERROR,
-                            "Unexpected error while parsing command: $e"
-                        )
-                        return
+                    } catch (original: Exception) {
+                        val e = if (original is InvocationTargetException) original.cause else original
+                        if (e is CCDecodingException) {
+                            throw ClientException.ViolatedPolicy("Failed to parse command", cause = e)
+                        } else {
+                            throw ClientException.Internal(
+                                "Unexpected error while parsing command",
+                                e ?: original
+                            )
+                        }
                     }
 
                     context.runCmd(cmd)
                 }
             }
-        } catch (e: NetworkException) {
+        } catch (e: ClientException.Disconnected) {
+            if (e.normal) {
+                logger.info("Client disconnected: ${e.message}")
+            } else {
+                logger.info("Client disconnected abnormally: ${e.message}")
+            }
+            close() // for local cleanup
+        } catch (e: ClientException.ViolatedPolicy) {
+            logger.info("Disconnecting (violated policy): $e", e)
             close(
-                CloseReason.Codes.PROTOCOL_ERROR,
-                "Network error: ${e.message}"
+                CloseReason.Codes.VIOLATED_POLICY,
+                e.toString() // TODO: better toString: include cause exception
             )
-            return
+        } catch (original: Exception) {
+            logger.error("Internal error, disconnecting", original)
+            val e = if (original !is ClientException.Internal) {
+                ClientException.Internal("Unexpected internal error", original)
+            } else original
+            close(
+                CloseReason.Codes.INTERNAL_ERROR,
+                e.toString() // TODO: better toString: include cause exception
+            )
         }
     }
 
     @Suppress("unused")
-    class NetworkException : RuntimeException {
-        constructor() : super()
-        constructor(message: String) : super(message)
-        constructor(message: String, cause: Throwable) : super(message, cause)
-        constructor(cause: Throwable) : super(cause)
+    open class ClientException private constructor(message: String? = null, cause: Throwable? = null) :
+        RuntimeException(message, cause) {
+        /**
+         * Represents an unexpected internal error.
+         */
+        class Internal(message: String? = null, cause: Throwable? = null) : ClientException(message, cause)
+
+        /**
+         * Represents an error caused by violation of the protocol by the client.
+         */
+        class ViolatedPolicy(message: String? = null, cause: Throwable? = null) : ClientException(message, cause)
+
+        /**
+         * Represents disconnections caused by the client disconnecting voluntarily or a network failure.
+         */
+        @Suppress("MemberVisibilityCanBePrivate")
+        class Disconnected internal constructor(
+            val normal: Boolean,
+            val closeReason: CloseReason?,
+            private val msg: String? = null
+        ) : ClientException() {
+
+            override val message: String?
+                get() {
+                    if (msg != null) return msg
+                    if (closeReason != null)
+                        return "${closeReason.code} (${closeReason.knownReason?.name ?: "UNKNOWN"}) ${closeReason.message}"
+                    return null
+                }
+
+            override fun toString(): String {
+                return "Disconnected(${if (normal) "Normal" else "Abnormal"}: ${message ?: closeReason})"
+            }
+        }
     }
 }
 
 private suspend fun WebSocketSession.send(data: CCByteBuf) {
-    send(Frame.Binary(true, data.nioBuffer())) //TODO: optimize? (avoid copying)
+    val buf = data.nioBuffer()
+    send(Frame.Binary(true, buf)) //TODO: optimize? (avoid copying)
 }

@@ -16,4 +16,4 @@ from .registry import (
 )
 # from .config_file import
 # from .observable import
-from .error import CmdExecutionError
+from .error import CmdError

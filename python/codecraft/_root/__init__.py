@@ -3,7 +3,7 @@
 
 from codecraft.internal.constants import *
 
-from codecraft.internal import ResLoc, CmdExecutionError
+from codecraft.internal import ResLoc, CmdError
 from codecraft.client import CCClient
 from codecraft.block import Block
 from codecraft.enum import Direction

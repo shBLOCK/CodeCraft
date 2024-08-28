@@ -4,12 +4,13 @@ from operator import itemgetter
 from typing import overload, override, TYPE_CHECKING
 
 from codecraft.internal.resource import ResLoc
+from codecraft.internal.registry import Registry, Registered
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Hashable, MutableMapping, Sequence
     from typing import Self, Optional
 
-    from codecraft.internal import ResLocLike, Registry, Registered
+    from codecraft.internal import ResLocLike
 
 
 class IdMap[T: Hashable]:
@@ -70,9 +71,7 @@ class IdMap[T: Hashable]:
             return self
 
         items = sorted((item for item in self._from_id.items()), key=itemgetter(0))
-        print(items)
         self.__contiguous = items[0][0] == 0 and items[-1][0] == len(items) - 1
-        print(self.__contiguous)
 
         if self.__contiguous:
             self._from_id = tuple(map(itemgetter(1), items))
@@ -119,10 +118,10 @@ class RegistryIdMap[T, R](IdMap[ResLoc]):
             return self._registry[name] if self._registry is not None else name
         elif isinstance(key, ResLoc):
             return super().__getitem__(key)
-        elif isinstance(key, Registered):
+        elif issubclass(key, Registered) or isinstance(key, Registered):
             return super().__getitem__(key.reg_name)
         else:
-            raise TypeError(type(key))
+            raise TypeError(key)
 
     def from_json_dict(self, json_dict: dict[str, int], *, freeze: bool = True):
         self.clear()

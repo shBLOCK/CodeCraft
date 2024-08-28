@@ -192,11 +192,17 @@ class CCByteBuf(private val data: FriendlyByteBuf) {
     fun readStr(): String = reading { data.readUtf(Int.MAX_VALUE) }
     fun writeStr(value: String) = writingType(Types.STR) { data.writeUtf(value) }
 
-    fun readResLoc(): ResourceLocation = reading { data.readResourceLocation() }
-    fun writeResLoc(value: ResourceLocation) = writingType(Types.RES_LOC) { data.writeResourceLocation(value) }
+    fun readResLoc(): ResourceLocation = reading {
+        ResourceLocation.fromNamespaceAndPath(data.readUtf(), data.readUtf())
+    }
 
-    fun <T> readResKey(key: ResourceKey<out Registry<T>>): ResourceKey<T> = reading { data.readResourceKey(key) }
-    fun writeResKey(value: ResourceKey<*>) = writingType(Types.RES_LOC) { data.writeResourceKey(value) }
+    fun writeResLoc(value: ResourceLocation) = writingType(Types.RES_LOC) {
+        data.writeUtf(value.namespace)
+        data.writeUtf(value.path)
+    }
+
+    fun <T> readResKey(key: ResourceKey<out Registry<T>>): ResourceKey<T> = ResourceKey.create(key, readResLoc())
+    fun writeResKey(value: ResourceKey<*>) = writeResLoc(value.location())
 
     fun readUUID(): UUID = reading { data.readUUID() }
     fun writeUUID(value: UUID) = writingType(Types.UUID) { data.writeUUID(value) }
@@ -220,7 +226,13 @@ class CCByteBuf(private val data: FriendlyByteBuf) {
 
     fun <T> readUsingRegistryOrThrow(registry: Registry<T>): Holder.Reference<T> {
         val id = readVarInt()
-        return readUsingRegistry(registry) ?: throw CCDecodingException("Invalid id $id for registry $registry")
+        return registry.getHolder(id).orElseThrow {
+            CCDecodingException(
+                "Invalid id $id for registry ${
+                    registry.key().location()
+                }"
+            )
+        }
     }
 
     fun <T> writeUsingRegistry(obj: T, registry: Registry<in T>) = this.apply {

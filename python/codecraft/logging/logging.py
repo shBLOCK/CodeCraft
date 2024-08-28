@@ -11,7 +11,7 @@ LOGGER = logging.getLogger("CodeCraft")
 class ColoramaFormatter(logging.Formatter):
     DEFAULT = {
         logging.DEBUG: colorama.Fore.CYAN,
-        logging.INFO: colorama.Fore.WHITE,
+        logging.INFO: colorama.Fore.RESET,
         logging.WARNING: colorama.Fore.YELLOW,
         logging.ERROR: colorama.Fore.RED,
         logging.CRITICAL: colorama.Fore.MAGENTA
@@ -63,4 +63,4 @@ def _cc_init_begin():
 
 def _cc_init_end():
     ms = (time.perf_counter() - _init_begin_time) * 1e3
-    LOGGER.debug(f"CodeCraft initialization completed in {ms:.0f}ms")
+    LOGGER.info(f"CodeCraft initialization completed in {ms:.0f}ms")

@@ -1,5 +1,5 @@
 numpy==2.1.0
-websockets==12.0
+websockets==13.0
 spatium==1.5.5
 mutf8==1.0.6
 amulet-nbt==4.0.0a1

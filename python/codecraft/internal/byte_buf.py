@@ -3,6 +3,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 import enum
 from uuid import UUID
+from collections.abc import Buffer
 
 import amulet_nbt
 from amulet_nbt import ReadOffset
@@ -17,7 +18,7 @@ from codecraft.internal.resource import ResLoc
 
 if TYPE_CHECKING:
     from amulet_nbt import AnyNBT, NamedTag
-    from collections.abc import Sequence, Callable, Buffer, Sized
+    from collections.abc import Sequence, Callable, Sized
     from typing import Self, Optional, Any, Protocol
 
     from codecraft.client import CCClient
@@ -39,7 +40,7 @@ ST_UBYTE = Struct(">B")
 
 # noinspection PyProtectedMember
 class CCByteBuf:
-    __slots__ = "_buffer", "_pos", "_is_write_dyn", "_client"
+    __slots__ = "_buffer", "_pos", "_size", "_is_write_dyn", "_client"
 
     class Type(enum.Enum):
         def __init__(self, type_id: int):
@@ -95,6 +96,7 @@ class CCByteBuf:
             raise TypeError("Invalid buffer")
 
         self._pos = 0
+        self._size = len(self._buffer)
         self._is_write_dyn = False
 
         self._client = client
@@ -103,8 +105,16 @@ class CCByteBuf:
         return bytes(self._buffer)
 
     @property
-    def raw_view(self) -> memoryview:
+    def written_view(self) -> memoryview:
         return memoryview(self._buffer)[:self._pos]
+
+    @property
+    def to_read_view(self) -> memoryview:
+        return memoryview(self._buffer)[self._pos: self._size]
+
+    @property
+    def full_view(self) -> memoryview:
+        return memoryview(self._buffer)[:self._size]
 
     @property
     def pos(self) -> int:
@@ -112,14 +122,14 @@ class CCByteBuf:
 
     @property
     def remaining(self) -> int:
-        return len(self._buffer) - self._pos
+        return len(self) - self._pos
 
     def seek(self, num: int) -> Self:
         self._pos += num
         return self
 
     def __len__(self):
-        return len(self._buffer)
+        return self._size
 
     def __getitem__(self, item: slice):
         """Create a view of a slice in this buffer."""
@@ -132,31 +142,33 @@ class CCByteBuf:
     def clear(self):
         if isinstance(self._buffer, bytearray):
             self._pos = 0
+            self._size = 0
             self._buffer.clear()
         else:
             raise ValueError("This buffer is not resizable")
 
     def checksum(self) -> int:
-        return crc32c.crc32c(self.raw_view)
+        return crc32c.crc32c(self.full_view)
 
     def allocate(self, length: int):
         if length < 0:
             raise ValueError("Can't allocate a negative amount of bytes")
         if not isinstance(self._buffer, bytearray):
             raise ValueError("This buffer is not resizable")
-        self._buffer.extend(repeat(0, length))
+        self._buffer.extend(repeat(0, length))  # TODO: smart allocate strategy? (less micro-allocations)
+        self._size += length
 
     def _allocate_to_fit(self, size: int):
         remaining = self.remaining
         if remaining < size:
-            self.allocate(remaining - size)
+            self.allocate(size - remaining)
 
     def _read_struct(self, st: Struct):
         if self.remaining < st.size:
             raise ValueError("Buffer underflow")
         result = st.unpack_from(self._buffer, self._pos)
         self._pos += st.size
-        return result
+        return result[0]
 
     def _write_struct(self, st: Struct, *data) -> Self:
         self._allocate_to_fit(st.size)
@@ -209,7 +221,7 @@ class CCByteBuf:
         return self._write_struct_array(ST_BYTE, value)
     def read_bytes(self) -> bytes:
         length = self.read_varint()
-        view = self.raw_view[self._pos: self._pos + length]
+        view = self.to_read_view[:length]
         self._pos += length
         return bytes(view)
     def write_bytes(self, data: SizedBuffer) -> Self:
@@ -219,6 +231,11 @@ class CCByteBuf:
         self._buffer[self._pos: self._pos + len(data)] = data
         self._pos += len(data)
         return self
+    def read_slice(self) -> CCByteBuf:
+        length = self.read_varint()
+        view = self.to_read_view[:length]
+        self._pos += length
+        return CCByteBuf(view)
 
     def read_int(self) -> int:
         return self._read_struct(ST_INT)
@@ -268,11 +285,12 @@ class CCByteBuf:
         if value > 2 ** 31 - 1 or value < -(2 ** 31):
             raise ValueError("Number too big for varint")
         value = _to_tc(value, 32)
-        bts = -(value.bit_length() // -7)  # ceil div
+        byts = -(value.bit_length() // -7)  # ceil div
+        byts = max(byts, 1)
         self.__writing_type(CCByteBuf.Type.VARINT)
-        self._allocate_to_fit(bts)
-        for i in range(bts):
-            continue_flag = (i != bts - 1) << 7
+        self._allocate_to_fit(byts)
+        for i in range(byts):
+            continue_flag = (1 << 7) if i != byts - 1 else 0
             self._write_struct(ST_UBYTE, value & 0b0111_1111 | continue_flag)
             value >>= 7
         return self
@@ -318,16 +336,19 @@ class CCByteBuf:
 
     def read_str(self) -> str:
         bts = self.read_varint()
-        result = mutf8.decode_modified_utf8(memoryview(self._buffer)[self._pos:self._pos + bts], encoding="utf8")
+        result = mutf8.decode_modified_utf8(memoryview(self._buffer)[self._pos:self._pos + bts])
         self._pos += bts
         return result
     def write_str(self, value: str) -> Self:
         self.__writing_type(CCByteBuf.Type.STR)
-        self.write_buffer(mutf8.encode_modified_utf8(value))
+        data = mutf8.encode_modified_utf8(value)
+        self.write_varint(len(data))
+        self.write_buffer(data)
         return self
 
     def read_resloc(self) -> ResLoc:
-        return ResLoc(self.read_str(), self.read_str())
+        v = self.read_str(), self.read_str()
+        return ResLoc(*v)
     def write_resloc(self, value: ResLoc) -> Self:
         self.__writing_type(CCByteBuf.Type.RES_LOC)
         self.write_str(value.namespace)

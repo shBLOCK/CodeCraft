@@ -34,6 +34,7 @@ class ResLoc:
             else:
                 raise ValueError(f"Invalid resource location: \"{a}\"")
 
+        # TODO: maybe regex is be faster?
         valid_namespace_chars = _VALID_NAMESPACE_CHARS
         valid_path_chars = _VALID_PATH_CHARS
         if any(ord(c) not in valid_namespace_chars for c in self.namespace):

@@ -1,27 +1,26 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from typing import final, TYPE_CHECKING
 from contextlib import asynccontextmanager
 
-import websockets
 from websockets import ConnectionClosed
-from websockets.frames import CloseCode
+from websockets.frames import CloseCode, CLOSE_CODE_EXPLANATIONS
 
 from .id_maps import RegistryIdMaps
 from .msg_queue import MsgQueue
+from .connection import Connection
 from codecraft.logging.logging import LOGGER
 from codecraft.internal.byte_buf import CCByteBuf
-from codecraft.asyncio.runner import RUNNER
+from codecraft.asyncio.runner import RUNNER, auto_async
 from codecraft.asyncio.misc import set_task_name
+from codecraft.internal.error import NetworkError, CmdError
 
 if TYPE_CHECKING:
     from asyncio import CancelledError, Task
-    from collections.abc import Awaitable
-    from typing import Optional, Self
+    from typing import Optional, Self, Any
     from logging import Logger
-
-    from websockets import WebSocketClientProtocol
 
     from codecraft.internal.cmd import Cmd
     from codecraft.internal.msg import CmdResultMsg
@@ -36,9 +35,17 @@ class CCClient:
 
         self._uri = uri
         self._name = name if name is not None else uri
-        self._logger = LOGGER.getChild(f"Client({self.name})")
-        self._conn: Optional[WebSocketClientProtocol] = None
+        self._logger = LOGGER.getChild(f"Client({self._name})")
+        self._conn: Connection = Connection(
+            self,
+            uri=uri,
+            open_timeout=10,
+            ping_interval=5,
+            ping_timeout=5,
+            close_timeout=5
+        )
 
+        self._connected = False
         self._established = False
 
         self._id_maps: RegistryIdMaps
@@ -48,7 +55,7 @@ class CCClient:
 
         self._batching = False
         self._batch_result_waiters: list[Task[CmdResultMsg]] = []
-        self._send_buffer = CCByteBuf(client=self)
+        self._cmd_buffer = CCByteBuf(client=self)
 
         if establish:
             self.establish()
@@ -57,12 +64,17 @@ class CCClient:
         self.__cmd_uid += 1
         return self.__cmd_uid
 
+    @property
+    def msg_queue(self) -> MsgQueue:
+        return self._msg_queue
+
     async def _establish_sync_registry_id_map(self):
         hash = (await self.recv_raw()).read_bytes()
-        self.logger.debug(f"Registry id maps hash: {hash.hex().upper()}")
-        self._id_maps = RegistryIdMaps.load_cache(hash.hex().upper(), self)
+        self._logger.debug(f"Registry id maps hash: {hash.hex().upper()}")
+        # self._id_maps = RegistryIdMaps.load_cache(hash.hex().upper(), self) # TODO: configurable
+        self._id_maps = None
         if self._id_maps is not None:  # cached
-            self.logger.debug("Loaded registry id map from cache")
+            self._logger.debug("Loaded registry id map from cache")
             await self.send_raw(CCByteBuf().write_bool(True))
         else:  # not cached
             await self.send_raw(CCByteBuf().write_bool(False))
@@ -70,7 +82,7 @@ class CCClient:
             self._id_maps = RegistryIdMaps(self)
             while sync_packets.remaining:
                 self._id_maps.read_sync_packet(sync_packets)
-            self.logger.debug("Received registry id map")
+            self._logger.debug("Received registry id map")
             self._id_maps.save_cache(hash.hex().upper())
 
     @property
@@ -86,32 +98,27 @@ class CCClient:
             if self.established:
                 raise ValueError("Already established")
 
-            self.logger.debug("Establishing...")
+            self._logger.info("Establishing...")
+            t = time.perf_counter()
             try:
-                self._conn = await websockets.connect(
-                    uri=self._uri,
-                    open_timeout=10,
-                    ping_interval=5,
-                    ping_timeout=5,
-                    close_timeout=5
-                ).__aenter__()
+                await self._conn.connect()
             except Exception as e:
-                self.logger.error(f"Failed to connect to CodeCraft server at <{self._uri}>: %s", e)
-                return
+                self._logger.info(f"Failed to connect to CodeCraft server at <{self._uri}>: %s", e)
+                raise NetworkError(f"Failed to connect to CodeCraft server at <{self._uri}>") from e
 
-            self.logger.debug("Connected")
+            self._connected = True
+            self._logger.debug("Connected")
 
             atexit.register(self.close, "Script exited", CloseCode.GOING_AWAY)
 
             await self._establish_sync_registry_id_map()
 
             await self.send_raw(CCByteBuf().write_bool(True))
-
             self._established = True
 
             self._msg_queue._start()
 
-            self.logger.debug("Established")
+            self._logger.info(f"Established in {(time.perf_counter() - t) * 1e3:.0f}ms")
 
         RUNNER.run(establish())
 
@@ -121,23 +128,26 @@ class CCClient:
 
     def ensure_established(self):
         if not self._established:
-            raise CCClient.NetworkError("Not established")
+            raise NetworkError("Not established")
 
-    def close(self, reason: str = "No message", code: int = CloseCode.NORMAL_CLOSURE):
-        if self._established:
-            self._established = False
-            asyncio.run(self._conn.close(reason=reason, code=code))
+    @auto_async
+    async def close(self, reason: str = "No message", code: int = CloseCode.NORMAL_CLOSURE):
+        if self._connected:
+            if self._established:
+                self._msg_queue._stop()
+            self._connected = self._established = False
+            self._logger.info("Client closing: %d (%s) %s", code, CLOSE_CODE_EXPLANATIONS[code], reason)
+            await self._conn.close(reason=reason, code=code)
 
     def __del__(self):
         self.close("CCClient object destructing", CloseCode.GOING_AWAY)
 
     async def send_raw(self, buf: CCByteBuf) -> Self:
         try:
-            # noinspection PyTypeChecker
-            await self._conn.send(buf.raw_view)
+            await self._conn.send(buf.written_view)
         except ConnectionClosed as e:
             self.close(str(e), CloseCode.ABNORMAL_CLOSURE)
-            raise CCClient.NetworkError(f"Connection closed: {str(e)}")
+            raise NetworkError(f"Connection closed: {str(e)}") from e
         return self
 
     async def recv_raw(self) -> CCByteBuf:
@@ -145,29 +155,39 @@ class CCClient:
             frame = await self._conn.recv()
         except ConnectionClosed as e:
             self.close(str(e), CloseCode.ABNORMAL_CLOSURE)
-            raise CCClient.NetworkError(f"Connection closed: {str(e)}.")
+            raise NetworkError(f"Connection closed: {str(e)}.") from e
 
         if isinstance(frame, str):
             self.close("Received invalid frame", CloseCode.POLICY_VIOLATION)
-            raise CCClient.NetworkError(f"Invalid frame format")
+            raise NetworkError(f"Invalid frame format")
 
         return CCByteBuf(frame, client=self)
 
-    async def send_cmd(self, cmd: Cmd) -> Awaitable[Awaitable[CmdResultMsg]]:
+    async def run_cmd(self, cmd: Cmd) -> Optional[Any]:
         self.ensure_established()
-        cmd._write(self._send_buffer, self)
+        # TODO: rework batching (allow creating multiple separate batches)
         batching = self._batching
-        if not batching:
-            await self._end_batch_cmd()
+        buf = self._cmd_buffer if batching else CCByteBuf()
+        buf.write_using_id_map(self.reg_id_maps.cmd, type(cmd))
+        cmd._write(buf, self)
+
         waiter = asyncio.create_task(self._msg_queue._wait_for_result(cmd))
         if batching:
             self._batch_result_waiters.append(waiter)
-        return waiter
+
+        if not batching:
+            await self.send_raw(buf)
+
+        msg = await waiter
+
+        if msg.success:
+            return msg.result
+        else:
+            raise CmdError(msg.error)
 
     async def _end_batch_cmd(self):
-        # noinspection PyTypeChecker
-        await self._conn.send(self._send_buffer.raw_view)
-        self._send_buffer.clear()
+        await self.send_raw(self._cmd_buffer)
+        self._cmd_buffer.clear()
         self._batch_result_waiters.clear()
 
     @asynccontextmanager
@@ -209,7 +229,3 @@ class CCClient:
     @property
     def logger(self) -> Logger:
         return self._logger
-
-    class NetworkError(IOError):
-        """Represents networking errors or other internal communication errors."""
-        pass

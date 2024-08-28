@@ -6,13 +6,13 @@ from codecraft.internal.resource import ResLoc
 from codecraft.internal.id_map import RegistryIdMap
 from codecraft.internal.meta_files import read_meta_file, write_meta_file
 from codecraft.logging.logging import LOGGER
+from codecraft.internal.cmd.cmd import Cmd
+from codecraft.internal.msg.msg import Msg
 
 if TYPE_CHECKING:
     from typing import Optional, Self
 
     from codecraft.internal import CCByteBuf
-    from codecraft.internal.cmd import Cmd
-    from codecraft.internal.msg import Msg
     from codecraft.client import CCClient
 
 CACHE_DIR = "registryIdMapCache"
@@ -63,5 +63,5 @@ class RegistryIdMaps:
                 m.from_json_dict(data[str(k)], freeze=True)
             return obj
         except Exception as e:
-            LOGGER.debug(f"No registry id map cache {name} or failed to load: {e}")
+            LOGGER.debug(f"No registry id map cache <{name}> or failed to load: {e}")
             return None

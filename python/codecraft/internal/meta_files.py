@@ -47,7 +47,7 @@ def read_meta_file(file: PathLike | str) -> Any:
     try:
         with actual_file.open("rt", encoding="utf8") as f:
             return json.load(f)
-    except IOError | ValueError as e:
+    except (IOError, ValueError) as e:
         raise IOError(f"Failed to read meta file {file}: {repr(e)}")
 
 
@@ -57,5 +57,5 @@ def write_meta_file(file: PathLike | str, data: Any) -> None:
     try:
         with actual_file.open("wt", encoding="utf8") as f:
             json.dump(data, f, ensure_ascii=False)
-    except IOError | ValueError as e:
+    except (IOError, ValueError) as e:
         raise IOError(f"Failed to write meta file {file}: {repr(e)}")

@@ -37,7 +37,7 @@ object CCServer {
         //TODO: ktor logging?
         server = embeddedServer(
             Netty,
-            port = 8080,
+            port = 6767,
             watchPaths = emptyList(),
             configure = {}
         ) {
@@ -47,11 +47,11 @@ object CCServer {
             }
             routing {
                 webSocket {
-                    val client = CCClient(this, mc)
+                    val client = CCClient(this@webSocket, mc)
 
                     try {
                         client.establish()
-                    } catch (e: Exception) {
+                    } catch (e: Exception) { // TODO: better error handling (based on ClientException.Internal/ViolatedPolicy/Disconnected)
                         client.close(
                             CloseReason.Codes.VIOLATED_POLICY,
                             "Failed to establish: $e"
@@ -65,11 +65,11 @@ object CCServer {
                     try {
                         client.loop()
                     } catch (e: Exception) {
+                        client.logger.error("Unexpected error in client loop", e)
                         client.close(
                             CloseReason.Codes.INTERNAL_ERROR,
                             "Unexpected error: $e"
                         )
-                        client.logger.error("Unexpected error in client loop", e)
                         return@webSocket
                     } finally {
                         _clients.remove(client)
