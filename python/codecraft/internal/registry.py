@@ -93,7 +93,7 @@ class TypeRegistry[T: Registered](Registry[T, type[T]]):
     pass
 
 
-class FactoryRegistry[T: Registered](Registry[T, T]):
+class InstantiatingRegistry[T: Registered](Registry[T, T]):
     """A registry that returns instantiated objects of entries."""
 
     @override
@@ -102,7 +102,7 @@ class FactoryRegistry[T: Registered](Registry[T, T]):
         return tp() if tp is not None else default
 
 
-class DefaultedFactoryRegistry[T: Registered](FactoryRegistry[T]):
+class DefaultedInstantiatingRegistry[T: Registered](InstantiatingRegistry[T]):
     """A registry that returns instantiated objects of entries;
     if no type has been registered for `reg_name`, return obj using `obj = T(); obj.reg_name = reg_name` (`T` is the type parameter and also the _base_type of this registry)."""
 

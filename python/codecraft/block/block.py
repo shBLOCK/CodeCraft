@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, final
 
 from .properties import BlockStateProperty
 from codecraft.internal.resource import ResLoc
-from codecraft.internal.registry import Registered, DefaultedFactoryRegistry
+from codecraft.internal.registry import Registered, DefaultedInstantiatingRegistry
 
 if TYPE_CHECKING:
     from typing import Any, Iterable, Optional
@@ -30,7 +30,7 @@ class BlockMeta(type):
         return type.__new__(cls, name, bases, dic, **kwargs)
 
 
-class Block(Registered, metaclass=BlockMeta, registry_name="block", registry_type=DefaultedFactoryRegistry):
+class Block(Registered, metaclass=BlockMeta, registry_name="block", registry_type=DefaultedInstantiatingRegistry):
     __slots__ = "reg_name", "_states", "_extra_properties"
 
     _properties: dict[str, BlockStateProperty[Any]]

@@ -11,8 +11,8 @@ from .registry import (
     Registered,
     Registry,
     TypeRegistry,
-    FactoryRegistry,
-    DefaultedFactoryRegistry
+    InstantiatingRegistry,
+    DefaultedInstantiatingRegistry
 )
 # from .config_file import
 # from .observable import
