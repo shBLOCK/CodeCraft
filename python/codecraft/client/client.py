@@ -13,8 +13,8 @@ from .msg_queue import MsgQueue
 from .connection import Connection
 from codecraft.logging.logging import LOGGER
 from codecraft.internal.byte_buf import CCByteBuf
-from codecraft.asyncio.runner import RUNNER, auto_async
-from codecraft.asyncio.misc import set_task_name
+from codecraft.asyncio import auto_async
+from codecraft.asyncio import set_task_name
 from codecraft.internal.error import NetworkError, CmdError
 
 if TYPE_CHECKING:
@@ -24,6 +24,8 @@ if TYPE_CHECKING:
 
     from codecraft.internal.cmd import Cmd
     from codecraft.internal.msg import CmdResultMsg
+
+import threading
 
 
 # noinspection PyProtectedMember
@@ -70,7 +72,7 @@ class CCClient:
 
     async def _establish_sync_registry_id_map(self):
         hash = (await self.recv_raw()).read_bytes()
-        self._logger.debug(f"Registry id maps hash: {hash.hex().upper()}")
+        self._logger.debug(f"Server registry id maps hash: {hash.hex().upper()}")
         # self._id_maps = RegistryIdMaps.load_cache(hash.hex().upper(), self) # TODO: configurable
         self._id_maps = None
         if self._id_maps is not None:  # cached
@@ -82,45 +84,43 @@ class CCClient:
             self._id_maps = RegistryIdMaps(self)
             while sync_packets.remaining:
                 self._id_maps.read_sync_packet(sync_packets)
-            self._logger.debug("Received registry id map")
+            self._logger.debug("Received registry id maps")
             self._id_maps.save_cache(hash.hex().upper())
 
     @property
     def reg_id_maps(self) -> RegistryIdMaps:
         return self._id_maps
 
-    def establish(self):
-        async def establish():
-            set_task_name("Establishing")
+    @auto_async
+    async def establish(self):
+        set_task_name("Establishing")
 
-            import atexit
+        import atexit
 
-            if self.established:
-                raise ValueError("Already established")
+        if self.established:
+            raise ValueError("Already established")
 
-            self._logger.info("Establishing...")
-            t = time.perf_counter()
-            try:
-                await self._conn.connect()
-            except Exception as e:
-                self._logger.info(f"Failed to connect to CodeCraft server at <{self._uri}>: %s", e)
-                raise NetworkError(f"Failed to connect to CodeCraft server at <{self._uri}>") from e
+        self._logger.info("Establishing...")
+        t = time.perf_counter()
+        try:
+            await self._conn.connect()
+        except Exception as e:
+            self._logger.info(f"Failed to connect to CodeCraft server at <{self._uri}>: %s", e)
+            raise NetworkError(f"Failed to connect to CodeCraft server at <{self._uri}>: {e}") from e
 
-            self._connected = True
-            self._logger.debug("Connected")
+        self._connected = True
+        self._logger.debug("Connected")
 
-            atexit.register(self.close, "Script exited", CloseCode.GOING_AWAY)
+        atexit.register(self.close, "Script exited", CloseCode.GOING_AWAY)
 
-            await self._establish_sync_registry_id_map()
+        await self._establish_sync_registry_id_map()
 
-            await self.send_raw(CCByteBuf().write_bool(True))
-            self._established = True
+        await self.send_raw(CCByteBuf().write_bool(True))
+        self._established = True
 
-            self._msg_queue._start()
+        asyncio.run_coroutine_threadsafe(self._msg_queue._start(), self._conn.loop).result()
 
-            self._logger.info(f"Established in {(time.perf_counter() - t) * 1e3:.0f}ms")
-
-        RUNNER.run(establish())
+        self._logger.info(f"Established in {(time.perf_counter() - t) * 1e3:.0f}ms")
 
     @property
     def established(self) -> bool:
@@ -131,16 +131,22 @@ class CCClient:
             raise NetworkError("Not established")
 
     @auto_async
-    async def close(self, reason: str = "No message", code: int = CloseCode.NORMAL_CLOSURE):
+    async def close(self, reason: str = "", code: int = CloseCode.NORMAL_CLOSURE):
+        """Close the client if it is active, thread safe."""
+
         if self._connected:
             if self._established:
                 self._msg_queue._stop()
             self._connected = self._established = False
             self._logger.info("Client closing: %d (%s) %s", code, CLOSE_CODE_EXPLANATIONS[code], reason)
             await self._conn.close(reason=reason, code=code)
+            self._logger.info("Client closed")
 
     def __del__(self):
-        self.close("CCClient object destructing", CloseCode.GOING_AWAY)
+        # calling event loop when python is shutting down causes problems
+        # (Error on reading from the event loop self pipe)
+        if threading.current_thread().is_alive():
+            self.close("CCClient object destructing", CloseCode.GOING_AWAY)
 
     async def send_raw(self, buf: CCByteBuf) -> Self:
         try:
@@ -171,8 +177,10 @@ class CCClient:
         buf.write_using_id_map(self.reg_id_maps.cmd, type(cmd))
         cmd._write(buf, self)
 
-        waiter = asyncio.create_task(self._msg_queue._wait_for_result(cmd))
+        self._msg_queue._add_waiter(cmd)
+        waiter = self._msg_queue._wait_for_result(cmd)
         if batching:
+            waiter = asyncio.create_task(waiter)
             self._batch_result_waiters.append(waiter)
 
         if not batching:

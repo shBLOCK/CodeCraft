@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 REG_LOGGER = LOGGER.getChild("Registry")
 
 
-# noinspection PyProtectedMember
+# noinspection PyProtectedMember,PyUnresolvedReferences
 class Registered[T: Registered]:
     reg_name: ResLoc  # can be overridden by instance attribute
     registry: ClassVar[Registry]

@@ -46,7 +46,7 @@ class RegistryIdMaps:
             if id_map is not None:
                 id_map.put(id, reg_name)
 
-        self._client.logger.debug(f"Registry id map sync: {name}")
+        self._client.logger.debug(f"Reading registry id map: {name}")
 
     def save_cache(self, name: str):
         write_meta_file(

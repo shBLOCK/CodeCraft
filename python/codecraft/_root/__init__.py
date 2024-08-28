@@ -11,8 +11,6 @@ from codecraft.entity import Entity
 from codecraft.item import Item
 from codecraft.world import World
 
-from codecraft.asyncio import async_main
-
 from .misc_cmd_api import (
     send_chat
 )

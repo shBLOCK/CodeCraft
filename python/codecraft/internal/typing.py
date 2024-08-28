@@ -1,7 +1,8 @@
 from typing import Any
 
 
-def dummy() -> Any:
+def dummy_for_ide() -> Any:
+    # noinspection PyUnresolvedReferences
     """A dummy function to workaround PyCharm not \"believing\" the type hints.
 
     >>> import threading
@@ -14,5 +15,5 @@ def dummy() -> Any:
     >>>         threading.Thread(target=thread_main).start()
     >>>
     >>>     def foobar(self):
-    >>>         print(self.bar.split("")) # Unresolved attribute reference 'bar' for class 'Foo'
+    >>>         print(self.bar.split("")) #  PyCharm: Unresolved attribute reference 'bar' for class 'Foo'
     """

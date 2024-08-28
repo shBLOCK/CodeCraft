@@ -18,10 +18,7 @@ def _gitignore():
     file = _META_PATH / ".gitignore"
     if not file.exists():
         with file.open("w") as f:
-            f.writelines((
-                "# created by CodeCraft automatically",
-                "*"
-            ))
+            f.write("# Created by CodeCraft automatically\n*")
 
 
 def _meta_file(file: PathLike | str) -> Path:

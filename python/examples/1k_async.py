@@ -1,4 +1,5 @@
 import time
+import asyncio
 from asyncio import TaskGroup
 
 import codecraft
@@ -6,14 +7,17 @@ import codecraft
 client = codecraft.CCClient("ws://127.0.0.1:6767")
 
 
+# TODO: HOW IS THE ASYNC VERSION SLOWER THAN THE SYNC VERSION ?!
 async def main():
-    tasks = []
+    t = time.perf_counter()
     async with TaskGroup() as tg:
-        t = time.perf_counter()
         for i in range(1000):
-            tasks.append(tg.create_task(codecraft.send_chat(str(i))))
+            tg.create_task(codecraft.send_chat(str(i)))
     print(f"Took {time.perf_counter() - t:.3f}s")
-    await client.close()
+
+    t = time.perf_counter()
+    await asyncio.gather(*[codecraft.send_chat(str(i)) for i in range(1000)])
+    print(f"Took {time.perf_counter() - t:.3f}s")
 
 
-codecraft.async_main(main())
+asyncio.run(main(), debug=True)

@@ -8,13 +8,10 @@ from typing import TYPE_CHECKING
 import websockets.asyncio
 from websockets.asyncio.client import ClientConnection
 from websockets.frames import CloseCode
-
-from codecraft.internal.typing import dummy
-from codecraft.logging import LOGGER
+from codecraft.internal.typing import dummy_for_ide
 
 if TYPE_CHECKING:
-    from typing import Any
-    from collections.abc import Buffer, Coroutine
+    from collections.abc import Buffer, Awaitable
 
     from codecraft.client import CCClient
 
@@ -34,41 +31,74 @@ class Connection:
     def __init__(self, client: CCClient, **kwargs):
         self._client = client
         self._kwargs = kwargs
-        self._conn: ClientConnection = dummy()
-        self._loop: AbstractEventLoop = dummy()
+        self._conn: ClientConnection = dummy_for_ide()
+        self.loop: AbstractEventLoop = dummy_for_ide()
+        self._closed = False
 
         ready_event = threading.Event()
 
         def thread_main():
-            self._loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(self._loop)
+            self.loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(self.loop)
             ready_event.set()
-            self._loop.run_forever()
+            client.logger.debug(f"Networking thread started")
+            self.loop.run_forever()
+            self.loop.close()
 
         self._thread = threading.Thread(
             target=thread_main,
-            name=f"Networker(client.name)",
+            name=f"Networker({client.name})",
             daemon=True
         )
 
         self._thread.start()
         ready_event.wait()
-        LOGGER.debug(f"Networking thread {self._thread.name} started")
 
-    async def connect(self) -> None:
+    def connect(self) -> Awaitable[None]:
+        assert not self._closed, "closed"
         async def _connect():
             self._conn = await websockets.asyncio.client.connect(**self._kwargs)
-        await self._run(_connect())
+        return self._run(_connect())
 
-    async def send(self, message: Buffer | str) -> None:
-        await self._run(self._conn.send(message))
+    def send(self, message: Buffer | str) -> Awaitable[None]:
+        assert not self._closed, "closed"
+        return self._run(self._conn.send(message))
 
-    async def recv(self) -> bytes | str:
-        return await self._run(self._conn.recv())
+    def recv(self) -> Awaitable[bytes | str]:
+        assert not self._closed, "closed"
+        return self._run(self._conn.recv())
 
-    async def close(self, code=CloseCode.NORMAL_CLOSURE, reason="") -> None:
-        await self._run(self._conn.close(code, reason))
+    async def close(self, code=CloseCode.NORMAL_CLOSURE, reason=""):
+        """Close the connection and stop the thread, thread safe."""
 
-    async def _run[T](self, coro: Coroutine[Any, Any, T]) -> T:
+        assert not self._closed, "closed"
+        self._closed = True
+
+        async def stop():
+            await self._conn.close(code, reason)
+            current = asyncio.current_task()
+            for task in asyncio.all_tasks(self.loop):
+                if task is not current:
+                    task.cancel()
+
+            # wait for tasks to complete (or terminate)
+            try:
+                async with asyncio.timeout(5):
+                    while True:
+                        await asyncio.sleep(0)
+                        for task in asyncio.all_tasks(self.loop):
+                            if task is not current:
+                                if not task.done():
+                                    break
+                        else:
+                            break
+            except TimeoutError:
+                self._client.logger.warning("Some tasks didn't finish in 5 seconds after being cancelled.")
+
+        await self._run(stop())
+        self.loop.call_soon_threadsafe(self.loop.stop)
+        self._thread.join()  # wait for event loop to terminate
+
+    def _run[T](self, coro: Awaitable[T]) -> Awaitable[T]:
         # TODO: optimize cross-thread coroutine?
-        return await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(coro, self._loop))
+        return asyncio.wrap_future(asyncio.run_coroutine_threadsafe(coro, self.loop))

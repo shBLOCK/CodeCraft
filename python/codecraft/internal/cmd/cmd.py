@@ -27,4 +27,8 @@ class Cmd(ABC, Registered, registry_name=ResLoc.codecraft("cmd")):
 
     # noinspection PyMethodMayBeStatic
     def _parse_result(self, buf: CCByteBuf, client: CCClient) -> Any:
+        """Parse the result of the command.
+
+        Note that it's possible that this might be called from the networking thread.
+        """
         return None
