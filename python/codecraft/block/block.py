@@ -65,8 +65,8 @@ class Block(Registered["Block", DefaultedInstantiatingRegistry["Block"]],
     def _all_properties(self) -> Iterable[str]:
         return itertools.chain(self._properties, self._extra_properties)
 
-    def _assigned_properties(self) -> Iterable[str]:
-        return iter(self._states)
+    def _assigned_properties(self) -> Collection[str]:
+        return self._states.keys()  # TODO: also include all of `self._extra_properties`
 
     @final
     def __getitem__[T](self, name: str) -> T:
