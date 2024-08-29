@@ -14,6 +14,7 @@ from .registry import (
     InstantiatingRegistry,
     DefaultedInstantiatingRegistry
 )
+from .default_instance import LazyDefaultInstance
 # from .config_file import
 # from .observable import
 from .error import CmdError

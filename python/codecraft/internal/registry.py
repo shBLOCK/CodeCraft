@@ -104,7 +104,12 @@ class InstantiatingRegistry[T: Registered](Registry[T, T]):
 
 class DefaultedInstantiatingRegistry[T: Registered](InstantiatingRegistry[T]):
     """A registry that returns instantiated objects of entries;
-    if no type has been registered for `reg_name`, return obj using `obj = T(); obj.reg_name = reg_name` (`T` is the type parameter and also the _base_type of this registry)."""
+    if no type has been registered for `key`, return obj using `obj = T(key)`
+    (`T` is the type parameter and also the _base_type of this registry).
+
+    Thus, the base type should assign to `self.reg_name` accordingly
+    to make sure the register name can be read by other systems of codecraft.
+    """
 
     @override
     def get[D](self, key: ResLocLike, _default: D = None) -> T | D:
@@ -112,6 +117,5 @@ class DefaultedInstantiatingRegistry[T: Registered](InstantiatingRegistry[T]):
         if obj is not None:
             return obj
 
-        obj = self._base_type()
-        obj.reg_name = key
+        obj = self._base_type(key)
         return obj
