@@ -10,6 +10,7 @@ from codecraft.internal.registry import Registered, DefaultedInstantiatingRegist
 
 if TYPE_CHECKING:
     from typing import Any, Iterable, Optional
+    from collections.abc import Collection
 
     from codecraft.internal import ResLocLike
 
@@ -31,6 +32,7 @@ class BlockMeta(type):
         return type.__new__(cls, name, bases, dic, **kwargs)
 
 
+# TODO: block entity NBT
 class Block(Registered["Block", DefaultedInstantiatingRegistry["Block"]],
             LazyDefaultInstance,
             metaclass=BlockMeta,
@@ -56,6 +58,9 @@ class Block(Registered["Block", DefaultedInstantiatingRegistry["Block"]],
             if prop is None:
                 raise KeyError(name)
         return prop
+
+    def _num_properties(self) -> int:
+        return len(self._properties) + len(self._extra_properties)
 
     def _all_properties(self) -> Iterable[str]:
         return itertools.chain(self._properties, self._extra_properties)
