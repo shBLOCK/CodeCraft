@@ -43,7 +43,6 @@ object CCServer {
         ) {
             install(WebSockets) {
                 pingPeriod = Duration.ofSeconds(5)
-                timeout = Duration.ofSeconds(5)
             }
             routing {
                 webSocket {

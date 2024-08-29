@@ -43,7 +43,6 @@ class CCClient:
             uri=uri,
             open_timeout=10,
             ping_interval=5,
-            ping_timeout=5,
             close_timeout=5
         )
 
@@ -138,7 +137,11 @@ class CCClient:
             if self._established:
                 self._msg_queue._stop()
             self._connected = self._established = False
-            self._logger.info("Client closing: %d (%s) %s", code, CLOSE_CODE_EXPLANATIONS[code], reason)
+            if code != CloseCode.ABNORMAL_CLOSURE:  # signals that the connection has already been closed
+                self._logger.info("Client closing: %d (%s) %s", code, CLOSE_CODE_EXPLANATIONS[code], reason)
+            else:
+                self._logger.info("Client closing")
+            # we run this even if the network connection has already been closed to terminate the networking thread, etc.
             await self._conn.close(reason=reason, code=code)
             self._logger.info("Client closed")
 
@@ -152,7 +155,7 @@ class CCClient:
         try:
             await self._conn.send(buf.written_view)
         except ConnectionClosed as e:
-            self.close(str(e), CloseCode.ABNORMAL_CLOSURE)
+            self.close(code=CloseCode.ABNORMAL_CLOSURE)
             raise NetworkError(f"Connection closed: {str(e)}") from e
         return self
 
@@ -160,12 +163,12 @@ class CCClient:
         try:
             frame = await self._conn.recv()
         except ConnectionClosed as e:
-            self.close(str(e), CloseCode.ABNORMAL_CLOSURE)
-            raise NetworkError(f"Connection closed: {str(e)}.") from e
+            _ = asyncio.create_task(self.close(code=CloseCode.ABNORMAL_CLOSURE))
+            raise NetworkError(f"Connection closed: {str(e)}") from e
 
         if isinstance(frame, str):
-            self.close("Received invalid frame", CloseCode.POLICY_VIOLATION)
-            raise NetworkError(f"Invalid frame format")
+            _ = asyncio.create_task(self.close("Received invalid string frame", CloseCode.POLICY_VIOLATION))
+            raise NetworkError(f"Invalid frame format: string")
 
         return CCByteBuf(frame, client=self)
 
@@ -173,7 +176,7 @@ class CCClient:
         self.ensure_established()
         # TODO: rework batching (allow creating multiple separate batches)
         batching = self._batching
-        buf = self._cmd_buffer if batching else CCByteBuf()
+        buf = self._cmd_buffer if batching else CCByteBuf(client=self)
         buf.write_using_id_map(self.reg_id_maps.cmd, type(cmd))
         cmd._write(buf, self)
 
