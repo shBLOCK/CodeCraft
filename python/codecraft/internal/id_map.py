@@ -117,10 +117,10 @@ class RegistryIdMap[T, R](IdMap[ResLoc]):
         if isinstance(key, int):
             name = super().__getitem__(key)
             return self._registry[name] if self._registry is not None else name
+        elif isinstance(key, Registered) or issubclass(key, Registered):
+            return super().__getitem__(key.reg_name)
         elif isinstance(key, ResLoc):
             return super().__getitem__(key)
-        elif issubclass(key, Registered) or isinstance(key, Registered):
-            return super().__getitem__(key.reg_name)
         else:
             raise TypeError(key)
 
