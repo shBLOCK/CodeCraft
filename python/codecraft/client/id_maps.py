@@ -29,13 +29,14 @@ class RegistryIdMaps:
         from codecraft.internal.cmd.cmd import Cmd
         from codecraft.internal.msg.msg import Msg
         from codecraft.block.block import Block
+        from codecraft.world.world import World
 
         self.cmd = add(RegistryIdMap(Cmd.registry))
         self.msg = add(RegistryIdMap(Msg.registry))
         self.block = add(RegistryIdMap(Block.registry))
         self.item = add(RegistryIdMap("item"))
         self.entity = add(RegistryIdMap("entity_type"))
-        self.world = add(RegistryIdMap("dimension"))
+        self.world = add(RegistryIdMap(World.registry))
 
     def read_sync_packet(self, buf: CCByteBuf):
         name = buf.read_resloc()

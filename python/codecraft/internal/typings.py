@@ -1,6 +1,13 @@
 from typing import Any
 
+from spatium import Vec3, Vec3i
+
 type InstOrType[T] = T | type[T]
+
+# TODO add more compatible type after updating updating spatium
+# Not including numbers as they are unintuitive in most cases
+type Vec3Like = Vec3 | Vec3i
+type Vec3iLike = Vec3i | Vec3
 
 
 def dummy_for_ide() -> Any:

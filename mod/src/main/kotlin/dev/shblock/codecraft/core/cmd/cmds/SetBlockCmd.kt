@@ -37,7 +37,7 @@ class SetBlockCmd(context: CmdContext, buf: CCByteBuf) : AbstractWorldCmd(contex
             Clearable.tryClear(world.getBlockEntity(pos))
         }
 
-        var updateFlags = 0
+        var updateFlags = 2 // always send updates to client
         if (flags has BLOCK_UPDATE)
             updateFlags = updateFlags or 1
         if (flags has PREVENT_NEIGHBOR_REACTIONS)
