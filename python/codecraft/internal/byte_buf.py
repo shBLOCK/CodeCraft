@@ -399,10 +399,15 @@ class CCByteBuf:
             block[name] = prop.deserialize(self.read_str())
         return block
 
-    def write_blockstate(self, block: Block) -> Self:
+    def write_blockstate(self, block: Block, all=False) -> Self:
         self.__writing_type(CCByteBuf.Type.BLOCK_STATE)
-        self.write_using_id_map(self._client.reg_id_maps.block, block.reg_name)
-        for prop_name in block._all_properties():
+        self.write_using_id_map(self._client.reg_id_maps.block, block)
+
+        props = block._all_properties() if all else block._assigned_properties()
+        num = block._num_properties() if all else len(block._assigned_properties())
+
+        self.write_varint(num)
+        for prop_name in props:
             self.write_str(prop_name)
             self.write_str(block._get_property(prop_name).serialize(block[prop_name]))
         return self
