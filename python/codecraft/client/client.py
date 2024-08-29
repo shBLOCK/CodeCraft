@@ -237,3 +237,6 @@ class CCClient:
     @property
     def logger(self) -> Logger:
         return self._logger
+
+
+_cc = CCClient.current  # internal helper alias
