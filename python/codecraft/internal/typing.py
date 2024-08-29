@@ -1,5 +1,6 @@
 from typing import Any
 
+type InstOrType[T] = T | type[T]
 
 def dummy_for_ide() -> Any:
     # noinspection PyUnresolvedReferences

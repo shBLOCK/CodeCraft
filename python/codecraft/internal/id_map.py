@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from typing import Self, Optional
 
     from codecraft.internal import ResLocLike
+    from codecraft.internal.typing import InstOrType
 
 
 class IdMap[T: Hashable]:
@@ -108,7 +109,7 @@ class RegistryIdMap[T, R](IdMap[ResLoc]):
     def __getitem__(self, key: int) -> R | ResLoc:
         ...
     @overload
-    def __getitem__(self, key: T | type[T] | ResLoc) -> int:
+    def __getitem__(self, key: InstOrType[T] | ResLoc) -> int:
         ...
 
     @override

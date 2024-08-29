@@ -1,7 +1,11 @@
 from abc import ABC
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from codecraft.internal.typing import InstOrType
 
 
-def or_default_instance[T: LazyDefaultInstance](obj_or_type: T | type[T]) -> T:
+def or_default_instance[T: LazyDefaultInstance](obj_or_type: InstOrType[T]) -> T:
     if isinstance(obj_or_type, type):
         obj_or_type: type[LazyDefaultInstance]
         return obj_or_type.get_default_instance()
