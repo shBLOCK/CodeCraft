@@ -66,6 +66,7 @@
         <list>
           <option value="id" />
           <option value="hash" />
+          <option value="all" />
         </list>
       </option>
     </inspection_tool>
