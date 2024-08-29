@@ -44,7 +44,7 @@ class Block(Registered["Block", DefaultedInstantiatingRegistry["Block"]],
 
     def __init__(self, reg_name: Optional[ResLocLike] = None, **extra_properties: BlockStateProperty[Any]):
         if reg_name is not None:
-            if hasattr(type(self), "reg_name"):
+            if hasattr(self, "reg_name"):
                 raise AttributeError(f"Register name is already defined for {self}")
             self.reg_name = ResLoc.from_like(reg_name)
 
