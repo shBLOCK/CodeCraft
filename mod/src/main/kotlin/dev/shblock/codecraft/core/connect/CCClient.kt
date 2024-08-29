@@ -92,7 +92,7 @@ class CCClient(private val session: DefaultWebSocketServerSession, mc: Minecraft
             established = false
             if (session.isActive) {
                 logger.info("Closing connection: ${code.name}, \"${message}\"")
-                session.close()
+                session.close(reason)
             }
         }
         return reason
