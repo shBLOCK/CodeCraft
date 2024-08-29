@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 from abc import ABC
-from typing import TYPE_CHECKING, final, override, Protocol
+from typing import TYPE_CHECKING, final, override, Protocol, Any
 
 from codecraft.internal.resource import ResLoc
 from codecraft.log.log import LOGGER
 from codecraft.internal.default_instance import LazyDefaultInstanceProto
 
 if TYPE_CHECKING:
-    from typing import Self, ClassVar, Any
+    from typing import Self
 
     from codecraft.internal import ResLocLike
     from codecraft.internal.typings import InstOrType
