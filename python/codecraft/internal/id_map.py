@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from typing import Self, Optional
 
     from codecraft.internal import ResLocLike
-    from codecraft.internal.typing import InstOrType
+    from codecraft.internal.typings import InstOrType
 
 
 class IdMap[T: Hashable]:

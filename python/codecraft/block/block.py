@@ -3,8 +3,8 @@ from __future__ import annotations
 import itertools
 from typing import TYPE_CHECKING, final
 
-from internal.default_instance import LazyDefaultInstance
 from .properties import BlockStateProperty
+from codecraft.internal.default_instance import LazyDefaultInstance
 from codecraft.internal.resource import ResLoc
 from codecraft.internal.registry import Registered, DefaultedInstantiatingRegistry
 
@@ -31,7 +31,10 @@ class BlockMeta(type):
         return type.__new__(cls, name, bases, dic, **kwargs)
 
 
-class Block(Registered, LazyDefaultInstance, metaclass=BlockMeta, registry_name="block",
+class Block(Registered["Block", DefaultedInstantiatingRegistry["Block"]],
+            LazyDefaultInstance,
+            metaclass=BlockMeta,
+            registry_name="block",
             registry_type=DefaultedInstantiatingRegistry):
     __slots__ = "reg_name", "_states", "_extra_properties"
 

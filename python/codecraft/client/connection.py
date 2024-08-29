@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 import websockets.asyncio
 from websockets.asyncio.client import ClientConnection
 from websockets.frames import CloseCode
-from codecraft.internal.typing import dummy_for_ide
+from codecraft.internal.typings import dummy_for_ide
 
 if TYPE_CHECKING:
     from collections.abc import Buffer, Awaitable

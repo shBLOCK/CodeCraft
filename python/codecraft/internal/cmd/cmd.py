@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
+from abc import ABC
 from typing import TYPE_CHECKING
 
 from codecraft.internal.resource import ResLoc
-from codecraft.internal.registry import Registered
+from codecraft.internal.registry import Registered, TypeRegistry
 
 if TYPE_CHECKING:
     from typing import Optional, Any
@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from codecraft.internal import CCByteBuf
 
 
-class Cmd(ABC, Registered, registry_name=ResLoc.codecraft("cmd")):
+class Cmd(ABC, Registered["Cmd", TypeRegistry], registry_name=ResLoc.codecraft("cmd")):
     def __init__(self):
         # The unique id of this command, determined once before sending to the client (_write).
         self._uid: Optional[int] = None

@@ -1,8 +1,9 @@
-from abc import ABC
-from typing import TYPE_CHECKING
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
-    from codecraft.internal.typing import InstOrType
+    from codecraft.internal.typings import InstOrType
 
 
 def or_default_instance[T: LazyDefaultInstance](obj_or_type: InstOrType[T]) -> T:
@@ -12,7 +13,7 @@ def or_default_instance[T: LazyDefaultInstance](obj_or_type: InstOrType[T]) -> T
     return obj_or_type
 
 
-class LazyDefaultInstance(ABC):
+class LazyDefaultInstance:  # can't use ABC here: causes metaclass conflicts
     """A utility base class that adds the get_default_instance() class method
     which returns a (lazy-instantiated) instance of the class.
 
@@ -28,3 +29,9 @@ class LazyDefaultInstance(ABC):
 
         inst = cls._def_inst = cls()
         return inst
+
+
+class LazyDefaultInstanceProto(Protocol):
+    @classmethod
+    def get_default_instance(cls):
+        pass

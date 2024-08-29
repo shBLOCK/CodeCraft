@@ -1,26 +1,29 @@
 from __future__ import annotations
 
 from abc import ABC
-from typing import TYPE_CHECKING, final, override
+from typing import TYPE_CHECKING, final, override, Protocol
 
 from codecraft.internal.resource import ResLoc
 from codecraft.log.log import LOGGER
+from codecraft.internal.default_instance import LazyDefaultInstanceProto
 
 if TYPE_CHECKING:
     from typing import Self, ClassVar, Any
 
     from codecraft.internal import ResLocLike
+    from codecraft.internal.typings import InstOrType
 
 REG_LOGGER = LOGGER.getChild("Registry")
 
 
 # noinspection PyProtectedMember,PyUnresolvedReferences
-class Registered[T: Registered]:
+# note: here the `Registry[Registered, Any]` should be `Registry[T, Any]`, but this is currently not possible (https://peps.python.org/pep-0695/#type-parameter-scopes)
+class Registered[T: Registered, REG: Registry[Registered, Any]]:
     reg_name: ResLoc  # can be overridden by instance attribute
-    registry: ClassVar[Registry]
+    registry: REG  # this should be `ClassVar[REG]`, but this is not supported currently
 
     def __init_subclass__(cls, reg_name: ResLocLike = None, registry_name: ResLocLike = None,
-                          registry_type: type[Registry[T, Any]] = None, **kwargs):
+                          registry_type: type[REG] = None, **kwargs):
         super().__init_subclass__(**kwargs)
 
         reg_name = ResLoc.from_opt_like(reg_name)
@@ -47,6 +50,12 @@ class Registered[T: Registered]:
             cls.registry = registry_type(cls, registry_name)
 
 
+# noinspection PyUnresolvedReferences
+class RegisteredProto[T: Registered, REG: Registry[Registered, Any]](Protocol):
+    reg_name: ResLoc  # can be overridden by instance attribute
+    registry: Registry
+
+
 class Registry[T: Registered, R](ABC):
     def __init__(self, base_type: type[T], name: ResLocLike):
         self._base_type = base_type
@@ -56,6 +65,10 @@ class Registry[T: Registered, R](ABC):
     @property
     def name(self) -> ResLoc:
         return self._name
+
+    @property
+    def base_type(self) -> type[T]:
+        return self._base_type
 
     def _put(self, key: ResLocLike, obj: type[T]) -> Self:
         key = ResLoc.from_like(key)
@@ -119,3 +132,32 @@ class DefaultedInstantiatingRegistry[T: Registered](InstantiatingRegistry[T]):
 
         obj = self._base_type(key)
         return obj
+
+
+# PERFECTION!
+class DefaultedInstantiatingRegisteredAndLazyDefaultInstanceProto(
+    RegisteredProto[Any, DefaultedInstantiatingRegistry],
+    LazyDefaultInstanceProto,
+    Protocol
+):
+    # TODO: replace this when python gets the `Intersection[A, B]` type (`Intersection[Registered, LazyDefaultInstance]`)
+    pass
+
+
+type FlexibleParamOfRegistered[T: DefaultedInstantiatingRegisteredAndLazyDefaultInstanceProto] \
+    = InstOrType[T] | ResLocLike
+
+
+def flexible_param_get_instance[T: DefaultedInstantiatingRegisteredAndLazyDefaultInstanceProto](
+    value: FlexibleParamOfRegistered[T],
+    registry: DefaultedInstantiatingRegistry[T]
+) -> T:
+    if isinstance(value, registry.base_type):
+        return value
+    elif isinstance(value, type):
+        value: type[T]
+        return value.get_default_instance()
+    elif isinstance(value, (ResLoc, str)):
+        return registry[value]
+    else:
+        raise TypeError(value)
