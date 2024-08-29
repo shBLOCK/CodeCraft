@@ -48,16 +48,14 @@ class MsgQueue:
             except CancelledError:
                 raise
             except NetworkError as e:
-                client._logger.error("Network error while receiving message, closing: %s", e)
+                client._logger.error("Error in message queue: %s", e)
                 # this also calls self._stop()
-                # noinspection PyAsyncCall
-                asyncio.create_task(client.close(f"Message queue error: {e}", CloseCode.POLICY_VIOLATION))
+                _ = asyncio.create_task(client.close(f"Message queue error: {e}", CloseCode.POLICY_VIOLATION))
                 raise
             except Exception as e:
                 client._logger.error("Message queue encountered unexpected error, closing", exc_info=e)
                 # this also calls self._stop()
-                # noinspection PyAsyncCall
-                asyncio.create_task(client.close("Message queue error", CloseCode.INTERNAL_ERROR))
+                _ = asyncio.create_task(client.close(f"Message queue error: {e}", CloseCode.INTERNAL_ERROR))
                 raise NetworkError("Message queue unexpected error") from e
 
     async def _start(self):
@@ -68,7 +66,7 @@ class MsgQueue:
         """Stop the message listener coroutine and cancel all awaiting things, thread safe."""
 
         self._loop.call_soon_threadsafe(self._receiver.cancel)
-        for cmd, fut in self._result_waiters:
+        for cmd, fut in self._result_waiters.values():
             fut.get_loop().call_soon_threadsafe(fut.cancel, "Message queue closed")
         self._result_waiters.clear()
 
@@ -107,4 +105,5 @@ class MsgQueue:
         try:
             return await fut
         finally:
-            del self._result_waiters[cmd._uid]
+            if cmd._uid in self._result_waiters:
+                del self._result_waiters[cmd._uid]
