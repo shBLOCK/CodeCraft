@@ -1,66 +1,53 @@
 package dev.shblock.codecraft
 
+import net.neoforged.bus.api.SubscribeEvent
+import net.neoforged.fml.ModContainer
+import net.neoforged.fml.common.EventBusSubscriber
+import net.neoforged.fml.config.ModConfig
+import net.neoforged.fml.event.config.ModConfigEvent
 import net.neoforged.neoforge.common.ModConfigSpec
+import kotlin.reflect.KProperty
 
-//@EventBusSubscriber(modid = CodeCraft.MODID, bus = EventBusSubscriber.Bus.MOD)
+
+@Suppress("HasPlatformType")
+@EventBusSubscriber(modid = CodeCraft.MODID, bus = EventBusSubscriber.Bus.MOD)
 internal object Config {
     private val BUILDER: ModConfigSpec.Builder = ModConfigSpec.Builder()
 
-//    private val LOG_DIRT_BLOCK: ModConfigSpec.BooleanValue =
-//        BUILDER.comment("Whether to log the dirt block on common setup").define("logDirtBlock", true)
-//
-//    private val MAGIC_NUMBER: ModConfigSpec.IntValue =
-//        BUILDER.comment("A magic number").defineInRange("magicNumber", 42, 0, Int.MAX_VALUE)
-//
-//    val MAGIC_NUMBER_INTRODUCTION: ModConfigSpec.ConfigValue<String> =
-//        BUILDER.comment("What you want the introduction message to be for the magic number")
-//            .define("magicNumberIntroduction", "The magic number is... ")
-//
-//    private val ITEM_STRINGS: ModConfigSpec.ConfigValue<List<String>> =
-//        BUILDER.comment("A list of items to log on common setup.").defineListAllowEmpty(
-//            "items",
-//            listOf("minecraft:iron_ingot"),
-//            Config::validateItemName
-//        )
-
     object Server {
-        init {
-            BUILDER.push("server")
-        }
-
-        private val SHUTDOWN_GRACE_PERIOD = BUILDER
+        val shutdownGracePeriod by BUILDER
             .comment("The maximum amount of time (ms) to wait until a server stops gracefully")
-            .defineInRange("server.shutdownGracePeriod", 3000, 0, Int.MAX_VALUE, Int::class.java)
-        val shutdownGracePeriod: Int
-            get() = SHUTDOWN_GRACE_PERIOD.get()
+            .worldRestart()
+            .defineInRange("server.shutdownGracePeriod", 1500, 0, Int.MAX_VALUE, Int::class.java)
+    }
 
-        init {
-            BUILDER.pop()
-        }
+    init {
+        // The object names that seems to do nothing triggers the lazy loading of sub-config objects.
+        // Kinda stupid, but actually useful for categorization.
+        BUILDER.path("server") { Server }
     }
 
 
-    internal val SPEC: ModConfigSpec = BUILDER.build()
+    private val SPEC: ModConfigSpec = BUILDER.build()
 
-//    var logDirtBlock: Boolean = false
-//    var magicNumber: Int = 0
-//    lateinit var magicNumberIntroduction: String
-//    lateinit var items: Set<Item>
-//
-//    private fun validateItemName(obj: Any): Boolean {
-//        return obj is String && BuiltInRegistries.ITEM.containsKey(ResourceLocation.parse(obj))
-//    }
+    internal fun init(modContainer: ModContainer) {
+        modContainer.registerConfig(ModConfig.Type.COMMON, SPEC)
+//        modContainer.registerExtensionPoint // TODO: cloth config configuration screen
+    }
 
-//    @SubscribeEvent
-//    fun onLoad(event: ModConfigEvent) {
-//        logDirtBlock = LOG_DIRT_BLOCK.get()
-//        magicNumber = MAGIC_NUMBER.get()
-//        magicNumberIntroduction = MAGIC_NUMBER_INTRODUCTION.get()
-//
-//        items = ITEM_STRINGS.get().stream().map { itemName: String? ->
-//            BuiltInRegistries.ITEM[ResourceLocation.parse(
-//                itemName
-//            )]
-//        }.collect(Collectors.toSet())
-//    }
+    @SubscribeEvent
+    fun onLoad(event: ModConfigEvent) {
+        // Nothing to do for now
+    }
 }
+
+private fun ModConfigSpec.Builder.path(path: String, block: () -> Any) {
+    push(path)
+    block()
+    pop()
+}
+
+private operator fun <T : Any> ModConfigSpec.ConfigValue<T>.getValue(
+    thisRef: Any?,
+    property: KProperty<*>
+): T = get()

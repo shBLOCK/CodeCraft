@@ -9,7 +9,6 @@ import net.minecraft.world.item.CreativeModeTab
 import net.neoforged.bus.api.IEventBus
 import net.neoforged.fml.ModContainer
 import net.neoforged.fml.common.Mod
-import net.neoforged.fml.config.ModConfig
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent
 import net.neoforged.neoforge.registries.DeferredRegister
 import org.slf4j.Logger
@@ -71,7 +70,7 @@ class CodeCraft {
     constructor(modEventBus: IEventBus, modContainer: ModContainer) {
         modEventBus.addListener(::commonSetup)
 
-        modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC)
+        Config.init(modContainer)
 
         CCCmds.CMDS.register(modEventBus)
         CCMsgs.MSGS.register(modEventBus)
