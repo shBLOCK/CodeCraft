@@ -13,7 +13,6 @@ import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.fml.common.EventBusSubscriber
 import net.neoforged.neoforge.event.server.ServerStartedEvent
 import net.neoforged.neoforge.event.server.ServerStoppingEvent
-import java.time.Duration
 
 @Suppress("UNUSED_PARAMETER")
 @EventBusSubscriber(modid = CodeCraft.MODID, bus = EventBusSubscriber.Bus.GAME)
@@ -42,8 +41,8 @@ object CCServer {
             configure = {}
         ) {
             install(WebSockets) {
-                pingPeriod = Duration.ofSeconds(5)
-                timeout = Duration.ofSeconds(0)
+//                pingPeriod = Duration.ofSeconds(5)
+//                timeout = Duration.ofSeconds(0)
             }
             routing {
                 webSocket {
