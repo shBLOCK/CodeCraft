@@ -18,7 +18,7 @@ internal object Config {
         val shutdownGracePeriod by BUILDER
             .comment("The maximum amount of time (ms) to wait until a server stops gracefully")
             .worldRestart()
-            .defineInRange("server.shutdownGracePeriod", 1500, 0, Int.MAX_VALUE, Int::class.java)
+            .defineInRange("server.shutdownGracePeriod", 1000, 0, Int.MAX_VALUE, Int::class.java)
     }
 
     init {
