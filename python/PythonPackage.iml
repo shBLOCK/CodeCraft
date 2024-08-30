@@ -11,4 +11,7 @@
   <component name="PackageRequirementsSettings">
     <option name="requirementsPath" value="requirement.txt" />
   </component>
+  <component name="PyDocumentationSettings">
+    <option name="renderExternalDocumentation" value="true" />
+  </component>
 </module>

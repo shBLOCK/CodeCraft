@@ -16,4 +16,7 @@
     <option name="platformVersion" value="21.1.27" />
     <option name="srgType" value="TSRG" />
   </component>
+  <component name="PackageRequirementsSettings">
+    <option name="requirementsPath" value="" />
+  </component>
 </module>
