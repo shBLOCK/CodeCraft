@@ -10,8 +10,10 @@ if TYPE_CHECKING:
 
 _RUNNER = asyncio.Runner()
 
+type MaybeAwaitable[T] = T | Awaitable[T]
 
-def auto_async[** P, R](coro_func: Callable[P, Coroutine[Any, Any, R]]) -> Callable[P, R | Awaitable[R]]:
+
+def auto_async[** P, R](coro_func: Callable[P, Coroutine[Any, Any, R]]) -> Callable[P, MaybeAwaitable[R]]:
     """A decorator to allow both asyncio and normal (synchronous) use of a coroutine function.
 
     When called from a running event loop, return the coroutine created by `coro_func`.
@@ -20,7 +22,7 @@ def auto_async[** P, R](coro_func: Callable[P, Coroutine[Any, Any, R]]) -> Calla
     if not asyncio.iscoroutinefunction(coro_func):
         raise TypeError("@auto_async can only be used on coroutine functions")
 
-    def inner(*args: P.args, **kwargs: P.kwargs) -> R | Awaitable[R]:
+    def inner(*args: P.args, **kwargs: P.kwargs) -> MaybeAwaitable[R]:
         # noinspection PyUnresolvedReferences,PyProtectedMember
         loop: Optional[AbstractEventLoop] = asyncio._get_running_loop()
         if loop is not None:
