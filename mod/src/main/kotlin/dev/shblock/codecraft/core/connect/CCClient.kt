@@ -106,7 +106,7 @@ class CCClient(private val session: DefaultWebSocketServerSession, mc: Minecraft
     suspend fun close(): CloseReason {
         return close(
             CloseReason.Codes.NORMAL,
-            "No message"
+            ""
         )
     }
 
