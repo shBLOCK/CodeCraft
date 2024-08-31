@@ -12,11 +12,15 @@ abstract class CmdContext(val mc: MinecraftServer) {
     @OptIn(ExperimentalStdlibApi::class)
     open val logger = LoggerFactory.getLogger("CmdContext(${super.hashCode().toHexString()})")
 
+    open val valid = true
+
     fun runCmd(cmd: Cmd) = runCmdCode(cmd, cmd::run)
 
     private fun runCmdTask(task: Cmd.Task) = runCmdCode(task.cmd, task.task)
 
     private inline fun runCmdCode(cmd: Cmd, block: () -> Unit) {
+        if (!valid) return
+
         try {
             block()
         } catch (_: Cmd.CmdException) {

@@ -75,26 +75,27 @@ class CCClient(private val session: DefaultWebSocketServerSession, mc: Minecraft
     }
 
     suspend fun establish() {
-        if (established) throw IllegalStateException("Already established")
+        if (lifecycle != Lifecycle.CONNECTED)
+            throw ClientException.InvalidState("Client's lifecycle is invalid for establishing: $lifecycle")
 
         establishSyncRegistryIdMap()
 
         if (!receiveRaw().readBool()) // client signals initialization complete
             throw ClientException.ViolatedPolicy("Client signaled establishing failure")
 
-        established = true
+        lifecycle = Lifecycle.ACTIVE
         logger.info("Established")
     }
 
     @Suppress("MemberVisibilityCanBePrivate")
-    fun ensureEstablished() {
-        if (!established) throw IllegalStateException("Not established")
+    fun ensureActive() {
+        if (lifecycle != Lifecycle.ACTIVE) throw ClientException.InvalidState("not active")
     }
 
     suspend fun close(code: CloseReason.Codes, message: String): CloseReason {
         val reason = CloseReason(code, message)
-        if (established) {
-            established = false
+        if (lifecycle != Lifecycle.CLOSED) {
+            lifecycle = Lifecycle.CLOSED
             if (session.isActive) {
                 logger.info("Closing connection: ${code.name}, \"${message}\"")
                 session.close(reason)
@@ -114,6 +115,11 @@ class CCClient(private val session: DefaultWebSocketServerSession, mc: Minecraft
         session.launch { close(code, message) }
     }
 
+    /**
+     * Should be called when a client disconnection
+     * (not the server actively closing the connection)
+     * is detected while sending / receiving.
+     */
     private suspend fun onDisconnected(): Nothing {
         val reason = session.closeReason.await()
         if (reason != null) {
@@ -163,7 +169,7 @@ class CCClient(private val session: DefaultWebSocketServerSession, mc: Minecraft
     }
 
     fun sendMsg(msg: Msg) { // TODO batching
-        ensureEstablished()
+        ensureActive()
         session.launch {
             sendRaw {
                 writeUsingRegistry(msg::class, CCRegistry.MSG_REGISTRY)
@@ -173,7 +179,7 @@ class CCClient(private val session: DefaultWebSocketServerSession, mc: Minecraft
     }
 
     internal suspend fun loop() {
-        ensureEstablished()
+        ensureActive()
         try {
             while (true) {
                 val buf = receiveRaw()
@@ -222,8 +228,15 @@ class CCClient(private val session: DefaultWebSocketServerSession, mc: Minecraft
         }
     }
 
+    /**
+     * `ClientException`s represents "expected runtime exceptions".
+     * This group of custom exceptions allows exception handlers
+     * to differentiate between expected and unexpected exceptions.
+     *
+     * Most of them are results of or would lead to the client getting disconnected.
+     */
     @Suppress("unused")
-    open class ClientException private constructor(message: String? = null, cause: Throwable? = null) :
+    sealed class ClientException private constructor(message: String? = null, cause: Throwable? = null) :
         RuntimeException(message, cause) {
         /**
          * Represents an unexpected internal error.
@@ -257,6 +270,13 @@ class CCClient(private val session: DefaultWebSocketServerSession, mc: Minecraft
                 return "Disconnected(${if (normal) "Normal" else "Abnormal"}: ${message ?: closeReason})"
             }
         }
+
+        /**
+         * Signals that an operation can not be performed because the client is not in a valid state for it.
+         *
+         * For example: trying to send a message but the client is not active.
+         */
+        class InvalidState(message: String? = null, cause: Throwable? = null) : ClientException(message, cause)
     }
 }
 

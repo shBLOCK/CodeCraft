@@ -10,5 +10,14 @@ class CCClientCmdContext(mc: MinecraftServer, val client: CCClient) : CmdContext
     override inline val logger: Logger
         get() = client.logger
 
-    override fun handleMsg(msg: Msg) = client.sendMsg(msg)
+    @Suppress("OVERRIDE_BY_INLINE")
+    override inline val valid: Boolean
+        get() = client.lifecycle == CCClient.Lifecycle.ACTIVE
+
+    override fun handleMsg(msg: Msg) = try {
+        client.sendMsg(msg)
+    } catch (_: CCClient.ClientException) {
+        // We ignore ClientExceptions to avoid throwing unexpected exceptions to Cmd.errorNoThrow().
+        // TODO: Definitely not the best solution to handle ClientExceptions in handleMsg, refactor needed
+    }
 }
