@@ -43,7 +43,8 @@ class CCClient:
             uri=uri,
             open_timeout=10,
             ping_interval=5,
-            close_timeout=5
+            close_timeout=5,
+            ping_timeout=None
         )
 
         self._connected = False
