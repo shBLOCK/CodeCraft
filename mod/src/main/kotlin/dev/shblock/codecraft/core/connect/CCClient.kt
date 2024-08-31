@@ -2,7 +2,6 @@ package dev.shblock.codecraft.core.connect
 
 import com.google.common.primitives.Longs
 import dev.shblock.codecraft.core.CCRegistry
-import dev.shblock.codecraft.core.cmd.CmdContext
 import dev.shblock.codecraft.core.cmd.dimensions
 import dev.shblock.codecraft.core.msg.Msg
 import dev.shblock.codecraft.core.utils.CCByteBuf
@@ -32,8 +31,14 @@ class CCClient(private val session: DefaultWebSocketServerSession, mc: Minecraft
         logger.info("Accepted")
     }
 
-    val context = CmdContext(this, mc)
-    private var established = false
+    val context = CCClientCmdContext(mc, this)
+
+    enum class Lifecycle {
+        CONNECTED, ACTIVE, CLOSED
+    }
+
+    var lifecycle = Lifecycle.CONNECTED
+        private set
 
     companion object {
         private fun CCByteBuf.writeRegistryIdMapSyncPacket(registry: Registry<*>): CCByteBuf {

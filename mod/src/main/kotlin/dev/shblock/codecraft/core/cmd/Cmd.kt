@@ -43,11 +43,11 @@ abstract class Cmd(val context: CmdContext, buf: CCByteBuf) {
     }
 
     protected fun successNoThrow(resultWriter: CCByteBuf.() -> Unit = { }) {
-        context.sendMsg(CmdResultMsg(context, uid, true, resultWriter))
+        context.handleMsg(CmdResultMsg(context, uid, true, resultWriter))
     }
 
     internal fun errorNoThrow(msg: String) {
-        context.sendMsg(
+        context.handleMsg(
             CmdResultMsg(context, uid, false) {
                 it.writeStr(msg)
             }
@@ -55,7 +55,7 @@ abstract class Cmd(val context: CmdContext, buf: CCByteBuf) {
     }
 
     internal fun errorNoThrow(msg: String, exception: Exception) {
-        context.sendMsg(
+        context.handleMsg(
             CmdResultMsg(context, uid, false) {
                 it.writeStr("$msg ($exception)")
             }
@@ -63,7 +63,7 @@ abstract class Cmd(val context: CmdContext, buf: CCByteBuf) {
     }
 
     internal fun errorNoThrow(exception: Exception) {
-        context.sendMsg(
+        context.handleMsg(
             CmdResultMsg(context, uid, false) {
                 it.writeStr("$exception")
             }

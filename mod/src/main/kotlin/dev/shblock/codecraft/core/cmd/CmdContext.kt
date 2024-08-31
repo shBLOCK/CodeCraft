@@ -1,18 +1,16 @@
 package dev.shblock.codecraft.core.cmd
 
-import dev.shblock.codecraft.CodeCraft
-import dev.shblock.codecraft.core.connect.CCClient
 import dev.shblock.codecraft.core.msg.Msg
 import net.minecraft.server.MinecraftServer
-import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedQueue
 
-class CmdContext(val client: CCClient?, val mc: MinecraftServer) {
+abstract class CmdContext(val mc: MinecraftServer) {
     internal val onTickQueue: Queue<Cmd.Task> = ConcurrentLinkedQueue()
 
-    private inline val logger: Logger
-        get() = client?.logger ?: CodeCraft.LOGGER
+    @OptIn(ExperimentalStdlibApi::class)
+    open val logger = LoggerFactory.getLogger("CmdContext(${super.hashCode().toHexString()})")
 
     fun runCmd(cmd: Cmd) = runCmdCode(cmd, cmd::run)
 
@@ -33,9 +31,7 @@ class CmdContext(val client: CCClient?, val mc: MinecraftServer) {
         onTickQueue.consumeAll(::runCmdTask)
     }
 
-    fun sendMsg(msg: Msg) {
-        client?.sendMsg(msg)
-    }
+    abstract fun handleMsg(msg: Msg)
 }
 
 private fun <T> Queue<T>.consumeAll(consumer: (T) -> Unit) {
