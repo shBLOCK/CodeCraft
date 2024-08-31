@@ -39,7 +39,7 @@ abstract class Cmd(val context: CmdContext, buf: CCByteBuf) {
      */
     protected fun success(resultWriter: CCByteBuf.() -> Unit = { }): Nothing {
         successNoThrow(resultWriter)
-        throw CmdSuccess()
+        throw CmdException.Success()
     }
 
     protected fun successNoThrow(resultWriter: CCByteBuf.() -> Unit = { }) {
@@ -72,27 +72,24 @@ abstract class Cmd(val context: CmdContext, buf: CCByteBuf) {
 
     internal fun error(msg: String): Nothing {
         errorNoThrow(msg)
-        throw CmdException(msg)
+        throw CmdException.Error(msg)
     }
 
     internal fun error(msg: String, exception: Exception): Nothing {
         errorNoThrow(msg, exception)
-        throw CmdException(msg, exception)
+        throw CmdException.Error(msg, exception)
     }
 
     internal fun error(exception: Exception): Nothing {
         errorNoThrow(exception)
-        throw CmdException(exception)
+        throw CmdException.Error(cause = exception)
     }
 
     internal class Task(val cmd: Cmd, val task: () -> Unit)
 
-    internal open class CmdException : RuntimeException {
-        constructor() : super()
-        constructor(message: String) : super(message)
-        constructor(message: String, cause: Throwable) : super(message, cause)
-        constructor(cause: Throwable) : super(cause)
+    internal sealed class CmdException(message: String? = null, cause: Throwable? = null) :
+        RuntimeException(message, cause) {
+        class Error(message: String? = null, cause: Throwable? = null) : CmdException(message, cause)
+        class Success : CmdException()
     }
-
-    internal class CmdSuccess : CmdException()
 }
