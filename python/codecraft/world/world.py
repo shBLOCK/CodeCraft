@@ -26,43 +26,6 @@ class World(Registered["World", DefaultedInstantiatingRegistry["World"]], LazyDe
     def __init__(self, name: ResLocLike = "overworld"):
         self._name = ResLoc.from_like(name)
 
-    # <editor-fold desc="IDE hints for set_block()">
-    @classmethod
-    @overload
-    def set_block(
-        cls,
-        pos: Vec3iLike,
-        block: FlexibleParamOfRegistered[Block],
-        *,
-        update: bool = True,
-        prevent_neighbor_reactions: bool = False,
-        silent: bool = False,
-        keep: bool = False,
-        destroy: bool = False,
-        drop_item: bool = False,
-        set_state: bool = True,
-        set_nbt: bool = True
-    ) -> MaybeAwaitable[None]:
-        pass
-
-    @overload
-    def set_block(
-        self,
-        pos: Vec3iLike,
-        block: FlexibleParamOfRegistered[Block],
-        *,
-        update: bool = True,
-        prevent_neighbor_reactions: bool = False,
-        silent: bool = False,
-        keep: bool = False,
-        destroy: bool = False,
-        drop_item: bool = False,
-        set_state: bool = True,
-        set_nbt: bool = True
-    ) -> MaybeAwaitable[None]:
-        pass
-    # </editor-fold>
-
     @DefaultInstanceMethod
     @auto_async
     async def set_block(
