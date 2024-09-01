@@ -36,6 +36,8 @@ ST_LONG = Struct(">q")
 ST_FLOAT = Struct(">d")
 
 ST_UBYTE = Struct(">B")
+ST_UINT = Struct(">I")
+ST_ULONG = Struct(">Q")
 
 
 # noinspection PyProtectedMember
@@ -209,16 +211,16 @@ class CCByteBuf:
         if self._is_write_dyn:
             self._write_struct(ST_BYTE, tp.type_id)
 
-    def read_byte(self) -> int:
-        return self._read_struct(ST_BYTE)
-    def write_byte(self, value: int) -> Self:
+    def read_byte(self, tc: bool = False) -> int:
+        return self._read_struct(ST_UBYTE if tc else ST_BYTE)
+    def write_byte(self, value: int, tc: bool = False) -> Self:
         self.__writing_type(CCByteBuf.Type.BYTE)
-        return self._write_struct(ST_BYTE, value)
-    def read_byte_array(self) -> tuple[int, ...]:
-        return self._read_struct_array(ST_BYTE)
-    def write_byte_array(self, value: Sequence[int]) -> Self:
+        return self._write_struct(ST_UBYTE if tc else ST_BYTE, value)
+    def read_byte_array(self, tc: bool = False) -> tuple[int, ...]:
+        return self._read_struct_array(ST_UBYTE if tc else ST_BYTE)
+    def write_byte_array(self, value: Sequence[int], tc: bool = False) -> Self:
         self.__writing_type(CCByteBuf.Type.BYTE_ARRAY)
-        return self._write_struct_array(ST_BYTE, value)
+        return self._write_struct_array(ST_UBYTE if tc else ST_BYTE, value)
     def read_bytes(self) -> bytes:
         length = self.read_varint()
         view = self.to_read_view[:length]
@@ -237,27 +239,27 @@ class CCByteBuf:
         self._pos += length
         return CCByteBuf(view)
 
-    def read_int(self) -> int:
-        return self._read_struct(ST_INT)
-    def write_int(self, value: int) -> Self:
+    def read_int(self, tc: bool = False) -> int:
+        return self._read_struct(ST_UINT if tc else ST_INT)
+    def write_int(self, value: int, tc: bool = False) -> Self:
         self.__writing_type(CCByteBuf.Type.INT)
-        return self._write_struct(ST_INT, value)
-    def read_int_array(self) -> tuple[int, ...]:
-        return self._read_struct_array(ST_INT)
-    def write_int_array(self, value: Sequence[int]) -> Self:
+        return self._write_struct(ST_UINT if tc else ST_INT, value)
+    def read_int_array(self, tc: bool = False) -> tuple[int, ...]:
+        return self._read_struct_array(ST_UINT if tc else ST_INT)
+    def write_int_array(self, value: Sequence[int], tc: bool = False) -> Self:
         self.__writing_type(CCByteBuf.Type.INT_ARRAY)
-        return self._write_struct_array(ST_INT, value)
+        return self._write_struct_array(ST_UINT if tc else ST_INT, value)
 
-    def read_long(self) -> int:
-        return self._read_struct(ST_LONG)
-    def write_long(self, value: int) -> Self:
+    def read_long(self, tc: bool = False) -> int:
+        return self._read_struct(ST_ULONG if tc else ST_LONG)
+    def write_long(self, value: int, tc: bool = False) -> Self:
         self.__writing_type(CCByteBuf.Type.LONG)
-        return self._write_struct(ST_LONG, value)
-    def read_long_array(self) -> tuple[int, ...]:
-        return self._read_struct_array(ST_LONG)
-    def write_long_array(self, value: Sequence[int]) -> Self:
+        return self._write_struct(ST_ULONG if tc else ST_LONG, value)
+    def read_long_array(self, tc: bool = False) -> tuple[int, ...]:
+        return self._read_struct_array(ST_ULONG if tc else ST_LONG)
+    def write_long_array(self, value: Sequence[int], tc: bool = False) -> Self:
         self.__writing_type(CCByteBuf.Type.LONG_ARRAY)
-        return self._write_struct_array(ST_LONG, value)
+        return self._write_struct_array(ST_ULONG if tc else ST_LONG, value)
 
     def read_float(self) -> float:
         return self._read_struct(ST_FLOAT)
@@ -270,7 +272,7 @@ class CCByteBuf:
         self.__writing_type(CCByteBuf.Type.FLOAT_ARRAY)
         return self._write_struct_array(ST_FLOAT, value)
 
-    def read_varint(self) -> int:
+    def read_varint(self, tc: bool = False) -> int:
         value = 0
         for i in range(5):
             byte = self._read_struct(ST_UBYTE)
@@ -279,12 +281,13 @@ class CCByteBuf:
                 break
         else:
             raise ValueError("Varint too long")
-        return _from_tc(value, 32)
+        return value if tc else _from_tc(value, 32)
 
-    def write_varint(self, value: int) -> Self:
+    def write_varint(self, value: int, tc: bool = False) -> Self:
         if value > 2 ** 31 - 1 or value < -(2 ** 31):
             raise ValueError("Number too big for varint")
-        value = _to_tc(value, 32)
+        if not tc:
+            value = _to_tc(value, 32)
         byts = -(value.bit_length() // -7)  # ceil div
         byts = max(byts, 1)
         self.__writing_type(CCByteBuf.Type.VARINT)
