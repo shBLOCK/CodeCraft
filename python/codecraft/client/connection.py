@@ -61,11 +61,9 @@ class Connection:
         return self._run(_connect())
 
     def send(self, message: Buffer | str) -> Awaitable[None]:
-        assert not self._closed, "closed"
         return self._run(self._conn.send(message))
 
     def recv(self) -> Awaitable[bytes | str]:
-        assert not self._closed, "closed"
         return self._run(self._conn.recv())
 
     async def close(self, code=CloseCode.NORMAL_CLOSURE, reason=""):

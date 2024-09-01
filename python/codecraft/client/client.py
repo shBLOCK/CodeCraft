@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Awaitable
+
 import time
 from typing import final, TYPE_CHECKING
 from contextlib import asynccontextmanager
@@ -11,6 +13,7 @@ from websockets.frames import CloseCode, CLOSE_CODE_EXPLANATIONS
 from .id_maps import RegistryIdMaps
 from .msg_queue import MsgQueue
 from .connection import Connection
+from .cmd_runner import SimpleCmdRunner, CmdRunner, BatchingCmdRunner
 from codecraft.log.log import LOGGER
 from codecraft.internal.byte_buf import CCByteBuf
 from codecraft.coro import auto_async
@@ -55,12 +58,13 @@ class CCClient:
 
         self.__cmd_uid = -1
 
-        self._batching = False
-        self._batch_result_waiters: list[Task[CmdResultMsg]] = []
-        self._cmd_buffer = CCByteBuf(client=self)
+        # also set by BatchingCmdRunner
+        self._cmd_runner: CmdRunner = SimpleCmdRunner(self)
 
         if establish:
             self.establish()
+
+        self._lifecycle_lock = threading.Lock()
 
     def _next_cmd_uid(self) -> int:
         self.__cmd_uid += 1
@@ -134,10 +138,14 @@ class CCClient:
     async def close(self, reason: str = "", code: int = CloseCode.NORMAL_CLOSURE):
         """Close the client if it is active, thread safe."""
 
-        if self._connected:
-            if self._established:
-                self._msg_queue._stop()
+        with self._lifecycle_lock:
+            connected, established = self._connected, self._established
             self._connected = self._established = False
+
+        if connected:
+            if established:
+                self._msg_queue._stop()
+
             if code != CloseCode.ABNORMAL_CLOSURE:  # signals that the connection has already been closed
                 self._logger.info("Client closing: %d (%s) %s", code, CLOSE_CODE_EXPLANATIONS[code], reason)
             else:
@@ -173,23 +181,12 @@ class CCClient:
 
         return CCByteBuf(frame, client=self)
 
-    async def run_cmd(self, cmd: Cmd) -> Optional[Any]:
+    def run_cmd(self, cmd: Cmd):
         self.ensure_established()
-        # TODO: rework batching (allow creating multiple separate batches)
-        batching = self._batching
-        buf = self._cmd_buffer if batching else CCByteBuf(client=self)
-        buf.write_using_id_map(self.reg_id_maps.cmd, type(cmd))
-        cmd._write(buf, self)
+        return self._run_cmd_coro(self._cmd_runner._run_cmd(cmd))
 
-        self._msg_queue._add_waiter(cmd)
-        waiter = self._msg_queue._wait_for_result(cmd)
-        if batching:
-            waiter = asyncio.create_task(waiter)
-            self._batch_result_waiters.append(waiter)
-
-        if not batching:
-            await self.send_raw(buf)
-
+    # noinspection PyMethodMayBeStatic
+    async def _run_cmd_coro(self, waiter: Awaitable[CmdResultMsg]) -> Optional[Any]:
         msg = await waiter
 
         if msg.success:
@@ -197,24 +194,9 @@ class CCClient:
         else:
             raise CmdError(msg.error)
 
-    async def _end_batch_cmd(self):
-        await self.send_raw(self._cmd_buffer)
-        self._cmd_buffer.clear()
-        self._batch_result_waiters.clear()
-
-    @asynccontextmanager
-    async def batch_cmd(self):
+    def batch_cmd(self):
         self.ensure_established()
-        self._batching = True
-        try:
-            yield
-            await self._end_batch_cmd()
-        except CancelledError as e:
-            for waiter in self._batch_result_waiters:
-                waiter.cancel()
-            raise e
-        finally:
-            self._batching = False
+        return BatchingCmdRunner(self)
 
     __current: Optional[CCClient] = None
 

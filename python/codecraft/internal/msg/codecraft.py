@@ -20,7 +20,7 @@ class CmdResultMsg(Msg, reg_name=ResLoc.codecraft("cmd_result")):
     def __init__(self, buf: CCByteBuf, client: CCClient):
         super().__init__(buf, client)
         self.cmd_uid = buf.read_varint()
-        cmd = client._msg_queue._get_running_cmd(self.cmd_uid)
+        cmd = client._msg_queue._pop_running_cmd(self.cmd_uid)
         if cmd is None:
             raise NetworkError(f"No command with uid {self.cmd_uid}")
 

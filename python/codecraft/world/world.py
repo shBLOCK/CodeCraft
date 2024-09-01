@@ -28,7 +28,7 @@ class World(Registered["World", DefaultedInstantiatingRegistry["World"]], LazyDe
 
     @DefaultInstanceMethod
     @auto_async
-    async def set_block(
+    def set_block(
         self,
         pos: Vec3iLike,
         block: FlexibleParamOfRegistered[Block],
@@ -66,7 +66,7 @@ class World(Registered["World", DefaultedInstantiatingRegistry["World"]], LazyDe
         # if set_nbt and block.nbt:
         #     flags |= SetBlockFlags.SET_NBT
 
-        return await _cc().run_cmd(SetBlockCmd(self, pos, block, flags))
+        return _cc().run_cmd(SetBlockCmd(self, pos, block, flags))
 
     def __repr__(self):
         return f"World({self._name})"

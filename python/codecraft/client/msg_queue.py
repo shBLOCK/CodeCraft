@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import threading
 from asyncio import CancelledError
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from websockets.frames import CloseCode
 
@@ -14,7 +15,7 @@ from codecraft.internal.typings import dummy_for_ide
 if TYPE_CHECKING:
     from typing import Optional
     from asyncio import Future, AbstractEventLoop
-    from collections.abc import MutableMapping
+    from collections.abc import Awaitable
 
     from codecraft.client import CCClient
     from codecraft.internal.cmd import Cmd
@@ -29,7 +30,9 @@ class MsgQueue:
 
         # A result waiter is guaranteed to be added here before the command is sent to the server.
         # (Unless the command result is intended to be discarded)
-        self._result_waiters: MutableMapping[int, tuple[Cmd, Future[CmdResultMsg]]] = {}
+        self._running_cmds: dict[int, Cmd] = {}
+        self._result_waiters: dict[int, Future[CmdResultMsg]] = {}
+        self._waiters_lock = threading.Lock()
 
         self._receiver: asyncio.Task[None]
 
@@ -65,45 +68,59 @@ class MsgQueue:
     def _stop(self):
         """Stop the message listener coroutine and cancel all awaiting things, thread safe."""
 
-        self._loop.call_soon_threadsafe(self._receiver.cancel)
-        for cmd, fut in self._result_waiters.values():
-            fut.get_loop().call_soon_threadsafe(fut.cancel, "Message queue closed")
-        self._result_waiters.clear()
+        with self._waiters_lock:
+            for fut in self._result_waiters.values():
+                fut.get_loop().call_soon_threadsafe(fut.cancel, "Message queue closed")
+
+        async def cancel():
+            self._receiver.cancel()
+            try:
+                await self._receiver
+            except CancelledError:
+                pass
+            with self._waiters_lock:
+                self._result_waiters.clear()
+
+        asyncio.run_coroutine_threadsafe(cancel(), self._loop)
 
     def __put(self, msg: Msg):
         if isinstance(msg, CmdResultMsg):
-            if waiter := self._result_waiters.get(msg.cmd_uid):
-                fut = waiter[1]
-                fut.get_loop().call_soon_threadsafe(fut.set_result, msg)
+            with self._waiters_lock:
+                if fut := self._result_waiters.get(msg.cmd_uid):
+                    fut.get_loop().call_soon_threadsafe(_safe_set_result, fut, msg)
         else:
             ...
             # TODO: msg handling
 
-    def _get_running_cmd(self, id: int) -> Optional[Cmd]:
-        tup = self._result_waiters.get(id)
-        return tup[0] if tup is not None else None
+    def _pop_running_cmd(self, id: int) -> Optional[Cmd]:
+        return self._running_cmds.pop(id, None)
 
-    def _add_waiter(self, cmd: Cmd):
-        """Register to receive (wait for) the command's results.
-
-        A separate function for creating the waiter is necessary
-        since asyncio might not immediately execute a task upon registration,
-        which means the waiter might not be created immediately,
-        and result in race condition if the result arrives immediately.
-        """
-        fut = asyncio.get_running_loop().create_future()
-        self._result_waiters[cmd._uid] = (cmd, fut)
-
-    # noinspection PyProtectedMember
-    async def _wait_for_result(self, cmd: Cmd) -> CmdResultMsg:
+    def _wait_for_result(self, cmd: Cmd) -> Awaitable[CmdResultMsg]:
         """Wait for a command result to arrive and return it.
 
         If the result has already received, return it immediately.
         One command result can only be received once.
+
+        Separating this method with the actual async waiter function
+        ensures that the waiter gets added to self._result_waiters
+        immediately upon calling this, avoiding some race conditions
+        when the server responds too quickly.
         """
-        _, fut = self._result_waiters[cmd._uid]
+        fut = asyncio.get_running_loop().create_future()
+        self._running_cmds[cmd._uid] = cmd
+        with self._waiters_lock:
+            self._result_waiters[cmd._uid] = fut
+        return self.__wait_for_result(cmd, fut)
+
+    async def __wait_for_result(self, cmd: Cmd, fut: Future[CmdResultMsg]) -> CmdResultMsg:
         try:
             return await fut
         finally:
-            if cmd._uid in self._result_waiters:
-                del self._result_waiters[cmd._uid]
+            with self._waiters_lock:
+                if cmd._uid in self._result_waiters:
+                    del self._result_waiters[cmd._uid]
+
+
+def _safe_set_result(fut: Future, result: Any):
+    if not fut.cancelled():
+        fut.set_result(result)
