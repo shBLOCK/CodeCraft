@@ -5,7 +5,6 @@ from collections.abc import Awaitable
 
 import time
 from typing import final, TYPE_CHECKING
-from contextlib import asynccontextmanager
 
 from websockets import ConnectionClosed
 from websockets.frames import CloseCode, CLOSE_CODE_EXPLANATIONS
@@ -21,7 +20,6 @@ from codecraft.coro import set_task_name
 from codecraft.internal.error import NetworkError, CmdError
 
 if TYPE_CHECKING:
-    from asyncio import CancelledError, Task
     from typing import Optional, Self, Any
     from logging import Logger
 

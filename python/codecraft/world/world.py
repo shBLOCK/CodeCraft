@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, overload
+from typing import TYPE_CHECKING
 
 from spatium import Vec3i
 
@@ -12,7 +12,7 @@ from codecraft.internal.resource import ResLoc
 from codecraft.internal.registry import Registered, DefaultedInstantiatingRegistry, FlexibleParamOfRegistered
 from codecraft.internal.default_instance import LazyDefaultInstance, DefaultInstanceMethod
 from codecraft.internal.registry import flexible_param_get_instance
-from codecraft.coro import auto_async, MaybeAwaitable
+from codecraft.coro import auto_async
 
 if TYPE_CHECKING:
     from codecraft.internal.typings import Vec3iLike

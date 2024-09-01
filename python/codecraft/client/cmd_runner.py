@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from asyncio import CancelledError, TaskGroup, Task
+from asyncio import Task
 from typing import TYPE_CHECKING, override
 from abc import ABC, abstractmethod
 
