@@ -71,11 +71,10 @@ class World(Registered["World", DefaultedInstantiatingRegistry["World"]], LazyDe
         block: FlexibleParamOfRegistered[Block],
         *,
         update: bool = True,
-        prevent_neighbor_reactions: bool = False,
-        silent: bool = False,
         keep: bool = False,
         destroy: bool = False,
         drop_item: bool = False,
+        on_tick: bool = True,
         set_state: bool = True,
         set_nbt: bool = True  # TODO
     ) -> None:
@@ -84,13 +83,8 @@ class World(Registered["World", DefaultedInstantiatingRegistry["World"]], LazyDe
 
         flags = 0
 
-        if silent:
-            flags |= SetBlockFlags.PREVENT_NEIGHBOR_REACTIONS
-        else:
-            if update:
-                flags |= SetBlockFlags.BLOCK_UPDATE
-            if prevent_neighbor_reactions:
-                flags |= SetBlockFlags.PREVENT_NEIGHBOR_REACTIONS
+        if update:
+            flags |= SetBlockFlags.BLOCK_UPDATE
 
         if keep:
             flags |= SetBlockFlags.KEEP
@@ -99,6 +93,9 @@ class World(Registered["World", DefaultedInstantiatingRegistry["World"]], LazyDe
             flags |= SetBlockFlags.DESTROY
             if drop_item:
                 flags |= SetBlockFlags.DROP_ITEM
+
+        if on_tick:
+            flags |= SetBlockFlags.ON_TICK
 
         if set_state:
             flags |= SetBlockFlags.SET_STATE

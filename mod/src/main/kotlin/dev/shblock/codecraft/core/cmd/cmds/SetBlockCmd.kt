@@ -13,7 +13,7 @@ import net.minecraft.world.level.block.state.BlockState
 
 class SetBlockCmd(context: CmdContext, buf: CCByteBuf) : AbstractWorldCmd(context, buf) {
     private val pos = buf.readBlockPos()
-    private val flags = buf.readByte().toInt()
+    private val flags = buf.readByte()
     private val blockState =
         if (flags has SET_STATE)
             buf.readBlockState()
@@ -22,12 +22,15 @@ class SetBlockCmd(context: CmdContext, buf: CCByteBuf) : AbstractWorldCmd(contex
     private val nbt = if (flags has SET_NBT) buf.readNBTCompound() else null
 
     override fun run() {
-        val changed = setBlock(pos, blockState, flags, nbt)
-        success { writeBool(changed) }
+        val block = {
+            val changed = setBlock(pos, blockState, flags, nbt)
+            success { writeBool(changed) }
+        }
+        if (flags has ON_TICK) onTick(block) else block()
     }
 
     //TODO: put in abstract based class (AbstractSetBlockCmd) for SetBlocksCmd and FillCmd
-    private fun setBlock(pos: BlockPos, blockState: BlockState, flags: Int, nbt: CompoundTag?): Boolean {
+    private fun setBlock(pos: BlockPos, blockState: BlockState, flags: Byte, nbt: CompoundTag?): Boolean {
         if (flags has KEEP && world.getBlockState(pos).isAir)
             return false
 
@@ -40,8 +43,8 @@ class SetBlockCmd(context: CmdContext, buf: CCByteBuf) : AbstractWorldCmd(contex
         var updateFlags = 2 // always send updates to client
         if (flags has BLOCK_UPDATE)
             updateFlags = updateFlags or 1
-        if (flags has PREVENT_NEIGHBOR_REACTIONS)
-            updateFlags = updateFlags or (16 and 32)
+        else
+            updateFlags = updateFlags or (16 or 32) // prevent neighbor reactions
 
 
         val chunk = world.getChunkAt(pos)
@@ -58,12 +61,12 @@ class SetBlockCmd(context: CmdContext, buf: CCByteBuf) : AbstractWorldCmd(contex
     }
 
     companion object {
-        const val SET_STATE = 1
-        const val SET_NBT = 2
-        const val BLOCK_UPDATE = 4
-        const val PREVENT_NEIGHBOR_REACTIONS = 8
-        const val KEEP = 16
-        const val DESTROY = 32
-        const val DROP_ITEM = 64
+        const val SET_STATE = 1.toByte()
+        const val SET_NBT = 2.toByte()
+        const val ON_TICK = 4.toByte()
+        const val BLOCK_UPDATE = 8.toByte()
+        const val KEEP = 16.toByte()
+        const val DESTROY = 32.toByte()
+        const val DROP_ITEM = 64.toByte()
     }
 }

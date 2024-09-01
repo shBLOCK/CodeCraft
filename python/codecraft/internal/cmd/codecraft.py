@@ -39,15 +39,11 @@ class AbstractWorldCmd(Cmd, ABC):
 class SetBlockFlags(IntFlag):
     SET_STATE = 1
     SET_NBT = 2
-    BLOCK_UPDATE = 4
-    PREVENT_NEIGHBOR_REACTIONS = 8
+    ON_TICK = 4
+    BLOCK_UPDATE = 8
     KEEP = 16
     DESTROY = 32
     DROP_ITEM = 64
-
-    DEFAULT = SET_STATE | BLOCK_UPDATE
-    DEFAULT_SILENT = SET_STATE | PREVENT_NEIGHBOR_REACTIONS
-    DEFAULT_DESTROY = SET_STATE | BLOCK_UPDATE | DESTROY | DROP_ITEM
 
 
 class SetBlockCmd(AbstractWorldCmd, reg_name=ResLoc.codecraft("set_block")):
@@ -60,7 +56,7 @@ class SetBlockCmd(AbstractWorldCmd, reg_name=ResLoc.codecraft("set_block")):
     def _write(self, buf: CCByteBuf, client: CCClient):
         super()._write(buf, client)
         buf.write_vec3i(self._pos)
-        buf.write_byte(self._flags)
+        buf.write_byte(self._flags, tc=True)
 
         if self._flags & SetBlockFlags.SET_STATE:
             buf.write_blockstate(self._block)
