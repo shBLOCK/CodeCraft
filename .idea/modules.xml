@@ -5,7 +5,6 @@
       <module fileurl="file://$PROJECT_DIR$/docs/Docs.iml" filepath="$PROJECT_DIR$/docs/Docs.iml" />
       <module fileurl="file://$PROJECT_DIR$/python/PythonPackage.iml" filepath="$PROJECT_DIR$/python/PythonPackage.iml" />
       <module fileurl="file://$PROJECT_DIR$/Root.iml" filepath="$PROJECT_DIR$/Root.iml" />
-      <module fileurl="file://$PROJECT_DIR$/webapp/WebApp.iml" filepath="$PROJECT_DIR$/webapp/WebApp.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/mod.iml" filepath="$PROJECT_DIR$/.idea/modules/mod.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/mod.main.iml" filepath="$PROJECT_DIR$/.idea/modules/mod.main.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/mod.test.iml" filepath="$PROJECT_DIR$/.idea/modules/mod.test.iml" />
