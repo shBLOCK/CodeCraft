@@ -4,6 +4,7 @@ import dev.shblock.codecraft.CodeCraft
 import dev.shblock.codecraft.core.cmd.Cmd
 import dev.shblock.codecraft.core.msg.Msg
 import dev.shblock.codecraft.core.utils.getOwningModOfClass
+import dev.shblock.codecraft.edu.task.Task
 import net.minecraft.core.Registry
 import net.minecraft.resources.ResourceKey
 import net.minecraft.resources.ResourceLocation
@@ -16,7 +17,9 @@ import net.neoforged.neoforge.registries.RegistryBuilder
 import net.neoforged.neoforgespi.language.IModFileInfo
 import java.lang.annotation.ElementType
 import kotlin.reflect.KClass
+import kotlin.reflect.full.findParameterByName
 import kotlin.reflect.full.isSubclassOf
+import kotlin.reflect.full.primaryConstructor
 
 @Target(AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.RUNTIME)
@@ -28,11 +31,12 @@ annotation class CCAutoReg(
     val whenModsLoaded: Array<String> = []
 )
 
-@Suppress("MemberVisibilityCanBePrivate")
+@Suppress("MemberVisibilityCanBePrivate", "unused")
 @EventBusSubscriber(modid = CodeCraft.MODID, bus = EventBusSubscriber.Bus.MOD)
 object CCRegistries {
     val CMD = classRegistry<Cmd>("cmd")
     val MSG = classRegistry<Msg>("msg")
+    val TASK = classRegistry<Task>("task")
 
     fun register(name: ResourceLocation, clazz: KClass<Any>) {
         ModList.get().mods.forEach { it.owningFile.file.scanResult.classes }
@@ -92,15 +96,14 @@ private inline fun <reified T : Any> classRegistry(name: String): Registry<KClas
     return reg
 }
 
+@Suppress("UNUSED_PARAMETER")
 private fun checkAutoRegConditions(
     modFile: IModFileInfo,
     clazz: KClass<out Any>,
-    annotationData: Map<String, Any>
+    annotation: CCAutoReg
 ): Boolean {
-    println("annodat: $annotationData")
-    @Suppress("UNCHECKED_CAST")
-    (annotationData["whenModsLoaded"] as? Array<String>)
-        ?.forEach { if (!ModList.get().isLoaded(it)) return false }
+    annotation.whenModsLoaded
+        .forEach { if (!ModList.get().isLoaded(it)) return false }
 
     //TODO: config option to disable specific commands
 
@@ -114,12 +117,19 @@ private fun scanAutoRegClasses() {
             .forEach currentClass@{ annoData ->
                 val clazz = Class.forName(annoData.clazz.className).kotlin
 
-                if (!checkAutoRegConditions(modFile, clazz, annoData.annotationData)) return@currentClass
+                val annoConstructor = CCAutoReg::class.primaryConstructor!!
+                val annotation = annoConstructor.callBy(
+                    annoData.annotationData.mapKeys {
+                        annoConstructor.findParameterByName(it.key)!!
+                    }
+                )
 
-                val namespace = annoData.annotationData["namespace"] as? String
-                    ?: modFile.mods[0].namespace
-                val name = annoData.annotationData["name"] as String
-                val id = ResourceLocation.fromNamespaceAndPath(namespace, name)
+                if (!checkAutoRegConditions(modFile, clazz, annotation)) return@currentClass
+
+                val id = ResourceLocation.fromNamespaceAndPath(
+                    annotation.namespace.ifEmpty { modFile.mods[0].namespace },
+                    annotation.name
+                )
 
                 classRegistries.values.forEach { reg ->
                     if (clazz.isSubclassOf(reg.baseClass)) {
