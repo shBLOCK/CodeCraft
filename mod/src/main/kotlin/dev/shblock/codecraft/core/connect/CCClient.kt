@@ -1,7 +1,7 @@
 package dev.shblock.codecraft.core.connect
 
 import com.google.common.primitives.Longs
-import dev.shblock.codecraft.core.CCRegistry
+import dev.shblock.codecraft.core.CCRegistries
 import dev.shblock.codecraft.core.cmd.dimensions
 import dev.shblock.codecraft.core.msg.Msg
 import dev.shblock.codecraft.core.utils.CCByteBuf
@@ -53,8 +53,8 @@ class CCClient(private val session: DefaultWebSocketServerSession, mc: Minecraft
 
         private val registrySyncPacket by lazy {
             CCByteBuf()
-                .writeRegistryIdMapSyncPacket(CCRegistry.CMD_REGISTRY)
-                .writeRegistryIdMapSyncPacket(CCRegistry.MSG_REGISTRY)
+                .writeRegistryIdMapSyncPacket(CCRegistries.CMD)
+                .writeRegistryIdMapSyncPacket(CCRegistries.MSG)
                 .writeRegistryIdMapSyncPacket(BuiltInRegistries.BLOCK)
                 .writeRegistryIdMapSyncPacket(BuiltInRegistries.ITEM)
                 .writeRegistryIdMapSyncPacket(BuiltInRegistries.ENTITY_TYPE)
@@ -172,7 +172,7 @@ class CCClient(private val session: DefaultWebSocketServerSession, mc: Minecraft
         ensureActive()
         session.launch {
             sendRaw {
-                writeUsingRegistry(msg::class, CCRegistry.MSG_REGISTRY)
+                writeUsingRegistry(msg::class, CCRegistries.MSG)
                 msg.write(context, this@sendRaw)
             }
         }
@@ -186,7 +186,7 @@ class CCClient(private val session: DefaultWebSocketServerSession, mc: Minecraft
 
                 while (buf.readableBytes > 0) {
                     val cmd = try {
-                        val cmdClass = buf.readUsingRegistryOrThrow(CCRegistry.CMD_REGISTRY).value()
+                        val cmdClass = buf.readUsingRegistryOrThrow(CCRegistries.CMD).value()
                         cmdClass.primaryConstructor!!.call(context, buf)
                     } catch (original: Exception) {
                         val e = if (original is InvocationTargetException) original.cause else original

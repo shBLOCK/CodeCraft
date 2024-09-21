@@ -1,5 +1,6 @@
 package dev.shblock.codecraft.core.cmd.cmds
 
+import dev.shblock.codecraft.core.CCAutoReg
 import dev.shblock.codecraft.core.cmd.CmdContext
 import dev.shblock.codecraft.core.utils.CCByteBuf
 import dev.shblock.codecraft.core.utils.has
@@ -11,6 +12,7 @@ import net.minecraft.world.level.block.state.BlockState
 
 //TODO: Block.updateFromNeighbourShapes
 
+@CCAutoReg("set_block")
 class SetBlockCmd(context: CmdContext, buf: CCByteBuf) : AbstractWorldCmd(context, buf) {
     private val pos = buf.readBlockPos()
     private val flags = buf.readByte()
