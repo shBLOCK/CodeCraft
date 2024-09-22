@@ -8,6 +8,7 @@ plugins {
     id("maven-publish")
     id("net.neoforged.moddev") version "$moddevgradle_version"
     id("org.jetbrains.kotlin.jvm") version "$kotlin_version"
+    id("org.jetbrains.kotlin.plugin.serialization") version "$kotlin_version"
 }
 
 version = mod_version
@@ -131,6 +132,9 @@ dependencies {
     ktorLib("io.ktor:ktor-server-core-jvm:$ktor_version")
     ktorLib("io.ktor:ktor-server-websockets-jvm:$ktor_version")
     ktorLib("io.ktor:ktor-server-netty-jvm:$ktor_version")
+    ktorLib("io.ktor:ktor-client-core-jvm:$ktor_version")
+    ktorLib("io.ktor:ktor-client-java-jvm:$ktor_version")
+    ktorLib("io.ktor:ktor-serialization-kotlinx-json-jvm:$ktor_version")
 
     // Add dependencies to Jar-In-Jar
     configurations.ktorLib.resolvedConfiguration.resolvedArtifacts.each {
