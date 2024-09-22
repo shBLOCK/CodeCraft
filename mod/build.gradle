@@ -85,7 +85,7 @@ configurations { mcDepsGetter {} }
 dependencies { mcDepsGetter("net.neoforged:minecraft-dependencies:$minecraft_version") }
 
 configurations {
-    ktorLib {}
+    kotlinLibs {}
 
     // get MC Netty libs
     mcDepsGetter.resolvedConfiguration.getResolvedArtifacts().each {
@@ -128,20 +128,25 @@ dependencies {
     // Use slim artifact of KFF to avoid kotlin lib conflictions
     implementation("thedarkcolour:kotlinforforge-neoforge:$kff_version:slim")
 
-    // Ktor
-    ktorLib("io.ktor:ktor-server-core-jvm:$ktor_version")
-    ktorLib("io.ktor:ktor-server-websockets-jvm:$ktor_version")
-    ktorLib("io.ktor:ktor-server-netty-jvm:$ktor_version")
-    ktorLib("io.ktor:ktor-client-core-jvm:$ktor_version")
-    ktorLib("io.ktor:ktor-client-java-jvm:$ktor_version")
-    ktorLib("io.ktor:ktor-serialization-kotlinx-json-jvm:$ktor_version")
+    kotlinLibs("io.ktor:ktor-server-core-jvm:$ktor_version")
+    kotlinLibs("io.ktor:ktor-server-websockets-jvm:$ktor_version")
+    kotlinLibs("io.ktor:ktor-server-netty-jvm:$ktor_version")
+
+    kotlinLibs("io.ktor:ktor-client-core-jvm:$ktor_version")
+    kotlinLibs("io.ktor:ktor-client-java-jvm:$ktor_version")
+    kotlinLibs("io.ktor:ktor-client-content-negotiation-jvm:$ktor_version")
+    kotlinLibs("io.ktor:ktor-serialization-kotlinx-json-jvm:$ktor_version")
 
     // Add dependencies to Jar-In-Jar
-    configurations.ktorLib.resolvedConfiguration.resolvedArtifacts.each {
+    configurations.kotlinLibs.resolvedConfiguration.resolvedArtifacts.each {
         def dep = it.moduleVersion.id
         if (dep in mcNettyDeps || dep.group == "org.slf4j") {
             println("Ignoring $dep for Jar-In-Jar: included by MC")
-        } else if (dep.group == "org.jetbrains.kotlin" || dep.group == "org.jetbrains.kotlinx") {
+        } else if (
+            dep.group == "org.jetbrains.kotlin"
+                || dep.name.contains("kotlinx-coroutines")
+                || dep.name.contains("kotlinx-serialization")
+        ) {
             println("Ignoring $dep for Jar-In-Jar: included by KFF")
         } else if (dep.name == "annotations") {
             println("Ignoring $dep for Jar-In-Jar: not needed for runtime")
@@ -157,7 +162,7 @@ dependencies {
     }
 
     // Configure Ktor libs for compilation & dev runtime
-    configurations.ktorLib.allDependencies.each {
+    configurations.kotlinLibs.allDependencies.each {
         implementation(it)
         additionalRuntimeClasspath(it)
     }
@@ -178,6 +183,12 @@ dependencies {
     compileOnly("cc.tweaked:cc-tweaked-$minecraft_version-forge-api:$cct_version")
     // TODO: figure out how to avoid `netty-codec-http` (jar-in-jar) confliction
 //    runtimeOnly("cc.tweaked:cc-tweaked-$minecraft_version-forge:$cct_version")
+
+    // LittleTiles
+//    compileOnly("curse.maven:creativecore-257814:5649812")
+    implementation("curse.maven:creativecore-257814:5649811")
+//    compileOnly("curse.maven:littletiles-257818:5676707")
+    implementation("curse.maven:littletiles-257818:5676706")
 }
 
 repositories {
@@ -224,15 +235,15 @@ configurations {
 // See https://docs.gradle.org/current/dsl/org.gradle.language.jvm.tasks.ProcessResources.html
 tasks.withType(ProcessResources).configureEach {
     var replaceProperties = [
-            minecraft_version      : minecraft_version,
-            minecraft_version_range: minecraft_version_range,
-            neo_version            : neo_version,
-            neo_version_range      : neo_version_range,
-            kff_version            : kff_version,
-            kff_version_range      : kff_version_range,
-            mod_id                 : mod_id,
-            mod_name               : mod_name,
-            mod_version            : mod_version
+        minecraft_version      : minecraft_version,
+        minecraft_version_range: minecraft_version_range,
+        neo_version            : neo_version,
+        neo_version_range      : neo_version_range,
+        kff_version            : kff_version,
+        kff_version_range      : kff_version_range,
+        mod_id                 : mod_id,
+        mod_name               : mod_name,
+        mod_version            : mod_version
     ]
     inputs.properties(replaceProperties)
 
