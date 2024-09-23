@@ -4,8 +4,8 @@ import com.google.common.primitives.Longs
 import dev.shblock.codecraft.core.CCRegistries
 import dev.shblock.codecraft.core.cmd.dimensions
 import dev.shblock.codecraft.core.msg.Msg
-import dev.shblock.codecraft.core.utils.CCByteBuf
-import dev.shblock.codecraft.core.utils.CCDecodingException
+import dev.shblock.codecraft.utils.CCByteBuf
+import dev.shblock.codecraft.utils.CCDecodingException
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*
 import kotlinx.coroutines.CancellationException

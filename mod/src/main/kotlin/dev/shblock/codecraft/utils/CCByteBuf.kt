@@ -1,4 +1,4 @@
-package dev.shblock.codecraft.core.utils
+package dev.shblock.codecraft.utils
 
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.Unpooled

@@ -1,7 +1,7 @@
 package dev.shblock.codecraft.core.msg
 
 import dev.shblock.codecraft.core.cmd.CmdContext
-import dev.shblock.codecraft.core.utils.CCByteBuf
+import dev.shblock.codecraft.utils.CCByteBuf
 
 /**
  * A general server-to-client message, can be written to multiple contexts multiple times.

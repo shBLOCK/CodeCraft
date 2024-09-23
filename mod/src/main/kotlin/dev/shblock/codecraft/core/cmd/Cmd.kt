@@ -1,8 +1,8 @@
 package dev.shblock.codecraft.core.cmd
 
 import dev.shblock.codecraft.core.msg.CmdResultMsg
-import dev.shblock.codecraft.core.utils.CCByteBuf
-import dev.shblock.codecraft.core.utils.CCDecodingException
+import dev.shblock.codecraft.utils.CCByteBuf
+import dev.shblock.codecraft.utils.CCDecodingException
 import net.minecraft.server.MinecraftServer
 import org.jetbrains.annotations.ApiStatus.Internal
 

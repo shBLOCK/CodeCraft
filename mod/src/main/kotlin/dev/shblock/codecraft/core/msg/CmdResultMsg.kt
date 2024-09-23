@@ -2,7 +2,7 @@ package dev.shblock.codecraft.core.msg
 
 import dev.shblock.codecraft.core.CCAutoReg
 import dev.shblock.codecraft.core.cmd.CmdContext
-import dev.shblock.codecraft.core.utils.CCByteBuf
+import dev.shblock.codecraft.utils.CCByteBuf
 
 @CCAutoReg("cmd_result")
 class CmdResultMsg internal constructor(

@@ -1,6 +1,6 @@
 @file:Suppress("NOTHING_TO_INLINE")
 
-package dev.shblock.codecraft.core.utils
+package dev.shblock.codecraft.utils
 
 import kotlin.experimental.and
 

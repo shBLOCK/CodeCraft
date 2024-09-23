@@ -2,8 +2,8 @@ package dev.shblock.codecraft.core.cmd.cmds
 
 import dev.shblock.codecraft.core.CCAutoReg
 import dev.shblock.codecraft.core.cmd.CmdContext
-import dev.shblock.codecraft.core.utils.CCByteBuf
-import dev.shblock.codecraft.core.utils.has
+import dev.shblock.codecraft.utils.CCByteBuf
+import dev.shblock.codecraft.utils.has
 import net.minecraft.core.BlockPos
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.nbt.CompoundTag

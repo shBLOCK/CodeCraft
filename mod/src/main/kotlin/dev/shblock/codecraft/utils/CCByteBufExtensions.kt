@@ -1,4 +1,4 @@
-package dev.shblock.codecraft.core.utils
+package dev.shblock.codecraft.utils
 
 import dev.shblock.codecraft.core.cmd.dimensions
 import net.minecraft.server.MinecraftServer
