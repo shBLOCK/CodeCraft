@@ -4,7 +4,6 @@ import dev.shblock.codecraft.CodeCraft
 import dev.shblock.codecraft.core.cmd.Cmd
 import dev.shblock.codecraft.core.msg.Msg
 import dev.shblock.codecraft.core.utils.getOwningModOfClass
-import dev.shblock.codecraft.edu.task.Task
 import net.minecraft.core.Registry
 import net.minecraft.resources.ResourceKey
 import net.minecraft.resources.ResourceLocation
@@ -36,7 +35,6 @@ annotation class CCAutoReg(
 object CCRegistries {
     val CMD = classRegistry<Cmd>("cmd")
     val MSG = classRegistry<Msg>("msg")
-    val TASK = classRegistry<Task>("task")
 
     fun register(name: ResourceLocation, clazz: KClass<Any>) {
         ModList.get().mods.forEach { it.owningFile.file.scanResult.classes }
