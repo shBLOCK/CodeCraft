@@ -1,5 +1,6 @@
 import time
 import asyncio
+import winloop
 from asyncio import TaskGroup
 
 import codecraft
@@ -7,7 +8,6 @@ import codecraft
 client = codecraft.CCClient("ws://127.0.0.1:6767")
 
 
-# TODO: HOW IS THE ASYNC VERSION SLOWER THAN THE SYNC VERSION ?!
 async def main():
     t = time.perf_counter()
     async with TaskGroup() as tg:
@@ -20,4 +20,4 @@ async def main():
     print(f"Took {time.perf_counter() - t:.3f}s")
 
 
-asyncio.run(main(), debug=True)
+winloop.run(main())
