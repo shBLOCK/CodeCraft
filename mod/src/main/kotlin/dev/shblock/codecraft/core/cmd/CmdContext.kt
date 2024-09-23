@@ -2,6 +2,7 @@ package dev.shblock.codecraft.core.cmd
 
 import dev.shblock.codecraft.core.msg.Msg
 import net.minecraft.server.MinecraftServer
+import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -10,7 +11,7 @@ abstract class CmdContext(val mc: MinecraftServer) {
     internal val onTickQueue: Queue<Cmd.Task> = ConcurrentLinkedQueue()
 
     @OptIn(ExperimentalStdlibApi::class)
-    open val logger = LoggerFactory.getLogger("CmdContext(${super.hashCode().toHexString()})")
+    open val logger: Logger = LoggerFactory.getLogger("CmdContext(${super.hashCode().toHexString()})")
 
     open val valid = true
 
