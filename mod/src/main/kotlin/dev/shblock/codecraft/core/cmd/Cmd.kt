@@ -13,7 +13,7 @@ import org.jetbrains.annotations.ApiStatus.Internal
  * which means one command object can not be used to receive multiple commands from contexts
  * nor can it be executed multiple times.
  */
-abstract class Cmd(protected val context: CmdContext, buf: CCByteBuf) {
+abstract class Cmd(val context: CmdContext, buf: CCByteBuf) {
     @Suppress("MemberVisibilityCanBePrivate")
     val uid = buf.readVarInt()
 
@@ -28,7 +28,7 @@ abstract class Cmd(protected val context: CmdContext, buf: CCByteBuf) {
         context.onTickQueue.add(Task(this, block))
     }
 
-    protected inline val mc: MinecraftServer
+    inline val mc: MinecraftServer
         get() = context.mc
 
     /**
