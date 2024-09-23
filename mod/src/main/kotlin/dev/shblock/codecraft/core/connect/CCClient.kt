@@ -31,7 +31,7 @@ class CCClient(private val session: DefaultWebSocketServerSession, mc: Minecraft
         logger.info("Accepted")
     }
 
-    val context = CCClientCmdContext(mc, this)
+    val cmdContext = CCClientCmdContext(mc, this)
 
     enum class Lifecycle {
         CONNECTED, ACTIVE, CLOSED
@@ -52,13 +52,16 @@ class CCClient(private val session: DefaultWebSocketServerSession, mc: Minecraft
         }
 
         private val registrySyncPacket by lazy {
-            CCByteBuf()
-                .writeRegistryIdMapSyncPacket(CCRegistries.CMD)
-                .writeRegistryIdMapSyncPacket(CCRegistries.MSG)
-                .writeRegistryIdMapSyncPacket(BuiltInRegistries.BLOCK)
-                .writeRegistryIdMapSyncPacket(BuiltInRegistries.ITEM)
-                .writeRegistryIdMapSyncPacket(BuiltInRegistries.ENTITY_TYPE)
-                .writeRegistryIdMapSyncPacket(CCServer.mc.dimensions()) //TODO: dynamic dimensions
+            CCByteBuf().also { buf ->
+                arrayOf(
+                    CCRegistries.CMD,
+                    CCRegistries.MSG,
+                    BuiltInRegistries.BLOCK,
+                    BuiltInRegistries.ITEM,
+                    BuiltInRegistries.ENTITY_TYPE,
+                    CCServer.mc.dimensions() //TODO: handle dynamic dimensions?
+                ).forEach { buf.writeRegistryIdMapSyncPacket(it) }
+            }
         }
 
         private val registrySyncPacketChecksum by lazy(registrySyncPacket::checksum)
@@ -173,7 +176,7 @@ class CCClient(private val session: DefaultWebSocketServerSession, mc: Minecraft
         session.launch {
             sendRaw {
                 writeUsingRegistry(msg::class, CCRegistries.MSG)
-                msg.write(context, this@sendRaw)
+                msg.write(cmdContext, this@sendRaw)
             }
         }
     }
@@ -187,7 +190,7 @@ class CCClient(private val session: DefaultWebSocketServerSession, mc: Minecraft
                 while (buf.readableBytes > 0) {
                     val cmd = try {
                         val cmdClass = buf.readUsingRegistryOrThrow(CCRegistries.CMD).value()
-                        cmdClass.primaryConstructor!!.call(context, buf)
+                        cmdClass.primaryConstructor!!.call(cmdContext, buf)
                     } catch (original: Exception) {
                         val e = if (original is InvocationTargetException) original.cause else original
                         if (e is CCDecodingException) {
@@ -200,7 +203,7 @@ class CCClient(private val session: DefaultWebSocketServerSession, mc: Minecraft
                         }
                     }
 
-                    context.runCmd(cmd)
+                    cmdContext.runCmd(cmd)
                 }
             }
         } catch (e: ClientException.Disconnected) {

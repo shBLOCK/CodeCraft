@@ -16,7 +16,7 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent
 object CmdExecutor {
     fun getActiveCmdContexts(): Collection<CmdContext> {
         val contexts = mutableListOf<CmdContext>()
-        CCServer.clients.forEach { contexts.add(it.context) }
+        CCServer.clients.forEach { contexts.add(it.cmdContext) }
         return contexts.toList()
     }
 
