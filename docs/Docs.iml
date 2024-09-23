@@ -11,4 +11,7 @@
   <component name="PackageRequirementsSettings">
     <option name="requirementsPath" value="" />
   </component>
+  <component name="ReSTService">
+    <option name="DOC_DIR" value="$PROJECT_DIR$/docs/sphinx" />
+  </component>
 </module>

@@ -1,11 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="Black">
     <option name="sdkName" value="Python 3.12 (python)" />
   </component>
   <component name="EntryPointsManager">
-    <list size="2">
-      <item index="0" class="java.lang.String" itemvalue="net.neoforged.bus.api.SubscribeEvent" />
-      <item index="1" class="java.lang.String" itemvalue="net.neoforged.fml.common.EventBusSubscriber" />
+    <list size="4">
+      <item index="0" class="java.lang.String" itemvalue="dev.shblock.codecraft.core.CCAutoReg" />
+      <item index="1" class="java.lang.String" itemvalue="net.neoforged.bus.api.SubscribeEvent" />
+      <item index="2" class="java.lang.String" itemvalue="net.neoforged.fml.common.EventBusSubscriber" />
     </list>
   </component>
   <component name="ExternalStorageConfigurationManager" enabled="true" />
