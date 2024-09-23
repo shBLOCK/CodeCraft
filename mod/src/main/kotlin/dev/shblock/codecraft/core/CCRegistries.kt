@@ -117,9 +117,15 @@ private fun scanAutoRegClasses() {
 
                 val annoConstructor = CCAutoReg::class.primaryConstructor!!
                 val annotation = annoConstructor.callBy(
-                    annoData.annotationData.mapKeys {
-                        annoConstructor.findParameterByName(it.key)!!
-                    }
+                    annoData.annotationData
+                        .mapKeys { annoConstructor.findParameterByName(it.key)!! }
+                        .mapValues {
+                            @Suppress("UNCHECKED_CAST")
+                            when (val value = it.value) {
+                                is ArrayList<*> -> (value as ArrayList<String>).toTypedArray()
+                                else -> value
+                            }
+                        }
                 )
 
                 if (!checkAutoRegConditions(modFile, clazz, annotation)) return@currentClass
