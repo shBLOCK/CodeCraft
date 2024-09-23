@@ -4,10 +4,11 @@ import dev.shblock.codecraft.core.CCAutoReg
 import dev.shblock.codecraft.core.cmd.CmdContext
 import dev.shblock.codecraft.utils.CCByteBuf
 
+@Suppress("MemberVisibilityCanBePrivate")
 @CCAutoReg("get_block")
 class GetBlockCmd(context: CmdContext, buf: CCByteBuf) : AbstractWorldCmd(context, buf) {
-    private val pos = buf.readBlockPos()
-    private val nbt = buf.readBool()
+    val pos = buf.readBlockPos()
+    val nbt = buf.readBool()
 
     override fun run() {
         val blockState = world.getBlockState(pos)

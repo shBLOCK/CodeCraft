@@ -9,7 +9,7 @@ import dev.shblock.codecraft.utils.readWorldKey
 abstract class AbstractWorldCmd(context: CmdContext, buf: CCByteBuf) : Cmd(context, buf) {
     @Suppress("MemberVisibilityCanBePrivate")
     protected val worldKey = buf.readWorldKey(mc)
-    protected val world by lazy {
+    val world by lazy {
         getWorldOrThrow(worldKey)
     }
 }

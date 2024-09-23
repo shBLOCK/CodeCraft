@@ -6,14 +6,15 @@ import dev.shblock.codecraft.core.cmd.CmdContext
 import dev.shblock.codecraft.utils.CCByteBuf
 import net.minecraft.network.chat.Component
 
+@Suppress("MemberVisibilityCanBePrivate")
 @CCAutoReg("send_system_chat")
 class SendSystemChatCmd(context: CmdContext, buf: CCByteBuf) : Cmd(context, buf) {
     //TODO: component based message
-    private val message = buf.readStr()
+    val message: Component = Component.literal(buf.readStr())
 
     override fun run() {
         mc.playerList.broadcastSystemMessage(
-            Component.literal(message),
+            message,
             false
         )
         success()

@@ -11,17 +11,17 @@ import net.minecraft.world.Clearable
 import net.minecraft.world.level.block.state.BlockState
 
 //TODO: Block.updateFromNeighbourShapes
-
+@Suppress("MemberVisibilityCanBePrivate")
 @CCAutoReg("set_block")
 class SetBlockCmd(context: CmdContext, buf: CCByteBuf) : AbstractWorldCmd(context, buf) {
-    private val pos = buf.readBlockPos()
+    val pos = buf.readBlockPos()
     private val flags = buf.readByte()
-    private val blockState =
+    val blockState: BlockState =
         if (flags has SET_STATE)
             buf.readBlockState()
         else buf.readUsingRegistryOrThrow(BuiltInRegistries.BLOCK).value()
             .defaultBlockState()
-    private val nbt = if (flags has SET_NBT) buf.readNBTCompound() else null
+    val nbt = if (flags has SET_NBT) buf.readNBTCompound() else null
 
     override fun run() {
         val block = {
@@ -62,7 +62,7 @@ class SetBlockCmd(context: CmdContext, buf: CCByteBuf) : AbstractWorldCmd(contex
         return oldBlockState != null || nbt != null
     }
 
-    companion object {
+    private companion object {
         const val SET_STATE = 1.toByte()
         const val SET_NBT = 2.toByte()
         const val ON_TICK = 4.toByte()
