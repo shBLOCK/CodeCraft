@@ -8,6 +8,7 @@ import io.ktor.server.netty.*
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*
+import kotlinx.coroutines.launch
 import net.minecraft.server.MinecraftServer
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.fml.common.EventBusSubscriber
@@ -50,7 +51,7 @@ object CCServer {
 
                     try {
                         client.establish()
-                    } catch (e: Exception) { // TODO: better error handling (based on ClientException.Internal/ViolatedPolicy/Disconnected)
+                    } catch (e: Exception) {
                         client.close(
                             CloseReason.Codes.VIOLATED_POLICY,
                             "Failed to establish: $e"
@@ -72,7 +73,6 @@ object CCServer {
                         return@webSocket
                     } finally {
                         _clients.remove(client)
-                        client.close()
                     }
                 }
             }
@@ -83,11 +83,14 @@ object CCServer {
     }
 
     private fun stop() {
+
         if (!running) throw IllegalStateException("Not running")
 
         CodeCraft.LOGGER.info("CodeCraft server stopping...")
         running = false
-        _clients.forEach { it.queueClose(CloseReason.Codes.GOING_AWAY, "Server shutting down") }
+        _clients.forEach {
+            it.apply { launch { close(CloseReason.Codes.GOING_AWAY, "Server shutting down") } }
+        }
         server!!.stop(
             gracePeriodMillis = Config.Server.shutdownGracePeriod.toLong(),
             timeoutMillis = Config.Server.shutdownGracePeriod.toLong()

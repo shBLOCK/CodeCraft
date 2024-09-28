@@ -24,12 +24,14 @@ class CmdResultMsg(Msg, reg_name=ResLoc.codecraft("cmd_result")):
         if cmd is None:
             raise NetworkError(f"No command with uid {self.cmd_uid}")
 
-        self.success = buf.read_bool()
+        self.type = buf.read_byte()
         self.result: Optional[Any]
-        self.error: Optional[str]
-        if self.success:
+
+        if self.successful:
             self.result = cmd._parse_result(buf, client)
-            self.error = None
         else:
-            self.result = None
-            self.error = buf.read_str()
+            self.result = (buf.read_str(),)
+
+    @property
+    def successful(self) -> bool:
+        return self.type == 0

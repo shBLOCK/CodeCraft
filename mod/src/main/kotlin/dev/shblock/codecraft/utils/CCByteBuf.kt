@@ -1,5 +1,7 @@
 package dev.shblock.codecraft.utils
 
+import dev.shblock.codecraft.core.registry.ClassRegistry
+import dev.shblock.codecraft.core.registry.ClassRegistryEntry
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.DecoderException
@@ -234,6 +236,15 @@ class CCByteBuf(private val data: FriendlyByteBuf) : Any() {
                 }"
             )
         }
+    }
+
+    fun <T : Any, E : ClassRegistryEntry<T>> readUsingClassRegistryOrThrow(registry: ClassRegistry<T, E>): E {
+        val id = readVarInt()
+        return registry.getEntry(id) ?: throw CCDecodingException(
+            "Invalid id $id for registry ${
+                registry.key().location()
+            }"
+        )
     }
 
     fun <T> writeUsingRegistry(obj: T, registry: Registry<in T>) = this.apply {
