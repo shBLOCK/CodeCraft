@@ -1,6 +1,7 @@
 package dev.shblock.codecraft
 
 import com.mojang.logging.LogUtils
+import dev.shblock.codecraft.core.registry.CCRegistries
 import net.minecraft.core.registries.Registries
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.world.item.CreativeModeTab
@@ -69,6 +70,8 @@ class CodeCraft {
         modEventBus.addListener(::commonSetup)
 
         Config.init(modContainer)
+
+        CCRegistries
 
         BLOCKS.register(modEventBus)
         ITEMS.register(modEventBus)

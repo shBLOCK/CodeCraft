@@ -1,5 +1,7 @@
 package dev.shblock.codecraft.utils
 
+import dev.shblock.codecraft.core.registry.ClassRegistry
+import dev.shblock.codecraft.core.registry.ClassRegistryEntry
 import io.netty.buffer.ByteBuf
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.DecoderException
@@ -25,13 +27,14 @@ import org.joml.Vector3i
 import java.nio.ByteBuffer
 import java.util.*
 import java.util.zip.CRC32C
+import kotlin.enums.enumEntries
 
 
 typealias CCEncodingException = EncoderException
 typealias CCDecodingException = DecoderException
 
 @Suppress("unused", "MemberVisibilityCanBePrivate")
-class CCByteBuf(private val data: FriendlyByteBuf) {
+class CCByteBuf(private val data: FriendlyByteBuf) : Any() {
     constructor(arr: ByteArray) : this(Unpooled.wrappedBuffer(arr))
 
     constructor(buf: ByteBuf) : this(FriendlyByteBuf(buf))
@@ -235,6 +238,15 @@ class CCByteBuf(private val data: FriendlyByteBuf) {
         }
     }
 
+    fun <T : Any, E : ClassRegistryEntry<T>> readUsingClassRegistryOrThrow(registry: ClassRegistry<T, E>): E {
+        val id = readVarInt()
+        return registry.getEntry(id) ?: throw CCDecodingException(
+            "Invalid id $id for registry ${
+                registry.key().location()
+            }"
+        )
+    }
+
     fun <T> writeUsingRegistry(obj: T, registry: Registry<in T>) = this.apply {
         val id = try {
             registry.getIdOrThrow(obj)
@@ -248,6 +260,9 @@ class CCByteBuf(private val data: FriendlyByteBuf) {
         val obj: T = registry.get(key) ?: throw CCEncodingException("Registry $registry doesn't contain key $key")
         writeUsingRegistry(obj, registry)
     }
+
+    inline fun <reified T : Enum<T>> readEnum() = enumEntries<T>()[readByte().toInt()]
+    fun writeEnum(entry: Enum<*>) = this.apply { writeByte(entry.ordinal.toByte()) }
 
     private fun <SH : StateHolder<*, SH>> readStateHolderValues(
         states: SH,

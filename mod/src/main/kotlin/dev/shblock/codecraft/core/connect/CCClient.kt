@@ -1,27 +1,27 @@
 package dev.shblock.codecraft.core.connect
 
 import com.google.common.primitives.Longs
-import dev.shblock.codecraft.core.CCRegistries
-import dev.shblock.codecraft.core.cmd.dimensions
 import dev.shblock.codecraft.core.msg.Msg
+import dev.shblock.codecraft.core.registry.CCRegistries
 import dev.shblock.codecraft.utils.CCByteBuf
-import dev.shblock.codecraft.utils.CCDecodingException
+import dev.shblock.codecraft.utils.UserSourcedException
+import dev.shblock.codecraft.utils.dimensions
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*
-import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.ClosedReceiveChannelException
-import kotlinx.coroutines.channels.ClosedSendChannelException
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import net.minecraft.core.Registry
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.server.MinecraftServer
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
-import java.lang.reflect.InvocationTargetException
-import kotlin.reflect.full.primaryConstructor
 
-class CCClient(private val session: DefaultWebSocketServerSession, mc: MinecraftServer) {
+class CCClient(
+    private val session: DefaultWebSocketServerSession,
+    val mc: MinecraftServer
+) : CoroutineScope by session {
     var logger: Logger = LoggerFactory.getLogger(
         "CCClient(${session.call.request.local.remoteAddress}:${session.call.request.local.remotePort})"
     )
@@ -31,7 +31,13 @@ class CCClient(private val session: DefaultWebSocketServerSession, mc: Minecraft
         logger.info("Accepted")
     }
 
-    val cmdContext = CCClientCmdContext(mc, this)
+    private lateinit var _cmdContext: CCClientCmdContext
+    val cmdContext: CCClientCmdContext
+        get() {
+            if (lifecycle == Lifecycle.CONNECTED)
+                throw IllegalStateException("The client has not been established")
+            return _cmdContext
+        }
 
     enum class Lifecycle {
         CONNECTED, ACTIVE, CLOSED
@@ -79,75 +85,83 @@ class CCClient(private val session: DefaultWebSocketServerSession, mc: Minecraft
 
     suspend fun establish() {
         if (lifecycle != Lifecycle.CONNECTED)
-            throw ClientException.InvalidState("Client's lifecycle is invalid for establishing: $lifecycle")
+            throw IllegalStateException("Client's lifecycle is invalid for establishing: $lifecycle")
 
         establishSyncRegistryIdMap()
 
         if (!receiveRaw().readBool()) // client signals initialization complete
-            throw ClientException.ViolatedPolicy("Client signaled establishing failure")
+            throw UserSourcedException("Client signaled establishing failure")
 
+        _cmdContext = CCClientCmdContext(this)
         lifecycle = Lifecycle.ACTIVE
         logger.info("Established")
     }
 
     @Suppress("MemberVisibilityCanBePrivate")
     fun ensureActive() {
-        if (lifecycle != Lifecycle.ACTIVE) throw ClientException.InvalidState("not active")
+        if (lifecycle != Lifecycle.ACTIVE) throw IllegalStateException("not active")
     }
 
-    suspend fun close(code: CloseReason.Codes, message: String): CloseReason {
-        val reason = CloseReason(code, message)
-        if (lifecycle != Lifecycle.CLOSED) {
-            lifecycle = Lifecycle.CLOSED
-            if (session.isActive) {
-                logger.info("Closing connection: ${code.name}, \"${message}\"")
-                session.close(reason)
-            }
-        }
-        return reason
-    }
-
-    suspend fun close(): CloseReason {
-        return close(
-            CloseReason.Codes.NORMAL,
-            ""
-        )
-    }
-
-    fun queueClose(code: CloseReason.Codes, message: String) {
-        session.launch { close(code, message) }
-    }
+    private val closeMutex = Mutex()
 
     /**
-     * Should be called when a client disconnection
-     * (not the server actively closing the connection)
-     * is detected while sending / receiving.
+     * Close the client with the specified reason, defaulting to VIOLATED_POLICY and no message.
+     *
+     * If the client connection is already closed, session.close() won't be called again.
+     *
+     * @return the close reason;
+     * if the client connection has already closed,
+     * the original close reason would be used instead of that from the parameters
      */
-    private suspend fun onDisconnected(): Nothing {
-        val reason = session.closeReason.await()
-        if (reason != null) {
-            when (reason.code) {
-                CloseReason.Codes.NORMAL.code, CloseReason.Codes.GOING_AWAY.code
-                    -> throw ClientException.Disconnected(true, reason)
+    suspend fun close(code: CloseReason.Codes = CloseReason.Codes.VIOLATED_POLICY, message: String = ""): CloseReason {
+        return withContext(NonCancellable) {
+            closeMutex.withLock {
+                val reason =
+                    @OptIn(DelicateCoroutinesApi::class)
+                    if (session.incoming.isClosedForReceive)
+                        session.closeReason.await() ?: CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Unknown reason")
+                    else
+                        CloseReason(code, message)
 
-                else -> {
-                    throw ClientException.Disconnected(false, reason)
-                }
+                if (lifecycle == Lifecycle.CLOSED) return@withLock reason
+
+                cmdContext.close()
+                lifecycle = Lifecycle.CLOSED
+                logger.info("Closing connection: ${reason.knownReason?.name}, \"${reason.message}\"")
+                @OptIn(DelicateCoroutinesApi::class)
+                if (!session.incoming.isClosedForReceive) runCatching { session.close(reason) }
+                session.cancel("Closing: ${reason.knownReason?.name}, \"${reason.message}\"")
+
+                return@withLock reason
             }
-        } else {
-            throw ClientException.Disconnected(false, null)
         }
     }
+
+//    /**
+//     * Should be called when a client disconnection
+//     * (not the server actively closing the connection)
+//     * is detected while sending / receiving.
+//     */
+//    private suspend fun onDisconnected() {
+//        val reason = if (session.incoming.isClosedForReceive) session.closeReason.await()
+//        session.launch {
+//            close(reason?.knownReason ?: CloseReason.Codes.VIOLATED_POLICY, reason?.message ?: "")
+//        }
+//    }
 
     private suspend fun sendRaw(buf: CCByteBuf) {
         try {
             session.send(buf)
-        } catch (e: ClosedSendChannelException) {
-            onDisconnected()
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            throw ClientException.Internal("Send failed: $e", e)
+            // in case of ClosedSendChannelException, the original close reason would be used (see doc of close())
+            close(CloseReason.Codes.INTERNAL_ERROR, e.toString())
+            throw e
+        } finally {
+            @OptIn(DelicateCoroutinesApi::class)
+            if (session.incoming.isClosedForReceive) close()
+            // no need to throw anything, all exceptions has been rethrown
         }
     }
 
@@ -160,128 +174,86 @@ class CCClient(private val session: DefaultWebSocketServerSession, mc: Minecraft
     private suspend fun receiveRaw(): CCByteBuf {
         val frame = try {
             session.incoming.receive()
-        } catch (e: ClosedReceiveChannelException) {
-            onDisconnected()
+        } catch (e: CancellationException) {
+            // For the incoming channel, a closed connection would only throw ClosedReceiveChannelException,
+            // so no need to check for closure here
+            throw e
+        } catch (e: Exception) {
+            // in case of ClosedReceiveChannelException, the original close reason would be used (see doc of close())
+            close(CloseReason.Codes.INTERNAL_ERROR, e.toString())
+            throw e
         }
 
-        try {
-            return CCByteBuf(frame.data)
-        } catch (e: Exception) {
-            throw ClientException.Internal("Receive failed: $e", e)
-        }
+        return CCByteBuf(frame.data)
     }
 
-    fun sendMsg(msg: Msg) { // TODO batching
+    suspend fun sendMsg(msg: Msg) { // TODO batching
         ensureActive()
-        session.launch {
-            sendRaw {
-                writeUsingRegistry(msg::class, CCRegistries.MSG)
-                msg.write(cmdContext, this@sendRaw)
-            }
+        sendRaw {
+            writeUsingRegistry(msg::class, CCRegistries.MSG)
+            msg.write(cmdContext, this@sendRaw)
         }
     }
 
     internal suspend fun loop() {
         ensureActive()
         try {
-            while (true) {
-                val buf = receiveRaw()
+            while (lifecycle == Lifecycle.ACTIVE) {
+                val buf = try {
+                    receiveRaw()
+                } catch (e: ClosedReceiveChannelException) {
+                    close()
+                    return
+                }
 
                 while (buf.readableBytes > 0) {
-                    val cmd = try {
-                        val cmdClass = buf.readUsingRegistryOrThrow(CCRegistries.CMD).value()
-                        cmdClass.primaryConstructor!!.call(cmdContext, buf)
-                    } catch (original: Exception) {
-                        val e = if (original is InvocationTargetException) original.cause else original
-                        if (e is CCDecodingException) {
-                            throw ClientException.ViolatedPolicy("Failed to parse command", cause = e)
-                        } else {
-                            throw ClientException.Internal(
-                                "Unexpected error while parsing command",
-                                e ?: original
-                            )
-                        }
-                    }
-
-                    cmdContext.runCmd(cmd)
+                    cmdContext.executeCmdFromBufAndPostResult(buf)
                 }
             }
-        } catch (e: ClientException.Disconnected) {
-            if (e.normal) {
-                logger.info("Client disconnected: ${e.message}")
-            } else {
-                logger.info("Client disconnected abnormally: ${e.message}")
-            }
-            close() // for local cleanup
-        } catch (e: ClientException.ViolatedPolicy) {
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: UserSourcedException) {
             logger.info("Disconnecting (violated policy): $e", e)
             close(
                 CloseReason.Codes.VIOLATED_POLICY,
-                e.toString() // TODO: better toString: include cause exception
+                e.toString()
             )
-        } catch (original: Exception) {
-            logger.error("Internal error, disconnecting", original)
-            val e = if (original !is ClientException.Internal) {
-                ClientException.Internal("Unexpected internal error", original)
-            } else original
+        } catch (e: Exception) {
+            logger.error("Internal error, disconnecting", e)
+//            val e = if (original !is ClientException.Internal) {
+//                ClientException.Internal("Unexpected internal error", original)
+//            } else original
             close(
                 CloseReason.Codes.INTERNAL_ERROR,
-                e.toString() // TODO: better toString: include cause exception
+                e.toString()
             )
         }
     }
-
-    /**
-     * `ClientException`s represents "expected runtime exceptions".
-     * This group of custom exceptions allows exception handlers
-     * to differentiate between expected and unexpected exceptions.
-     *
-     * Most of them are results of or would lead to the client getting disconnected.
-     */
-    @Suppress("unused")
-    sealed class ClientException private constructor(message: String? = null, cause: Throwable? = null) :
-        RuntimeException(message, cause) {
-        /**
-         * Represents an unexpected internal error.
-         */
-        class Internal(message: String? = null, cause: Throwable? = null) : ClientException(message, cause)
-
-        /**
-         * Represents an error caused by violation of the protocol by the client.
-         */
-        class ViolatedPolicy(message: String? = null, cause: Throwable? = null) : ClientException(message, cause)
-
-        /**
-         * Represents disconnections caused by the client disconnecting voluntarily or a network failure.
-         */
-        @Suppress("MemberVisibilityCanBePrivate")
-        class Disconnected internal constructor(
-            val normal: Boolean,
-            val closeReason: CloseReason?,
-            private val msg: String? = null
-        ) : ClientException() {
-
-            override val message: String?
-                get() {
-                    if (msg != null) return msg
-                    if (closeReason != null)
-                        return "${closeReason.code} (${closeReason.knownReason?.name ?: "UNKNOWN"}) ${closeReason.message}"
-                    return null
-                }
-
-            override fun toString(): String {
-                return "Disconnected(${if (normal) "Normal" else "Abnormal"}: ${message ?: closeReason})"
-            }
-        }
-
-        /**
-         * Signals that an operation can not be performed because the client is not in a valid state for it.
-         *
-         * For example: trying to send a message but the client is not active.
-         */
-        class InvalidState(message: String? = null, cause: Throwable? = null) : ClientException(message, cause)
-    }
 }
+
+//    /**
+//     * Represents disconnections caused by the client disconnecting voluntarily or a network failure.
+//     */
+//    @Suppress("MemberVisibilityCanBePrivate")
+//    class DisconnectedException internal constructor(
+//        val normal: Boolean,
+//        val closeReason: CloseReason?,
+//        private val msg: String? = null
+//    ) : CancellationException() {
+//
+//        override val message: String?
+//            get() {
+//                if (msg != null) return msg
+//                if (closeReason != null)
+//                    return "${closeReason.code} (${closeReason.knownReason?.name ?: "UNKNOWN"}) ${closeReason.message}"
+//                return null
+//            }
+//
+//        override fun toString(): String {
+//            return "DisconnectedException(${if (normal) "Normal" else "Abnormal"}: ${message ?: closeReason})"
+//        }
+//    }
+//}
 
 private suspend fun WebSocketSession.send(data: CCByteBuf) {
     val buf = data.nioBuffer()

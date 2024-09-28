@@ -1,9 +1,13 @@
 package dev.shblock.codecraft.core.cmd.cmds
 
-import dev.shblock.codecraft.core.CCAutoReg
 import dev.shblock.codecraft.core.cmd.CmdContext
+import dev.shblock.codecraft.core.cmd.CmdResult
+import dev.shblock.codecraft.core.registry.CCAutoReg
 import dev.shblock.codecraft.utils.CCByteBuf
+import dev.shblock.codecraft.utils.eventloop.get
 import dev.shblock.codecraft.utils.has
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.invoke
 import net.minecraft.core.BlockPos
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.nbt.CompoundTag
@@ -23,16 +27,18 @@ class SetBlockCmd(context: CmdContext, buf: CCByteBuf) : AbstractWorldCmd(contex
             .defaultBlockState()
     val nbt = if (flags has SET_NBT) buf.readNBTCompound() else null
 
-    override fun run() {
-        val block = {
+    override suspend fun executeImpl(): CmdResult {
+        val block = suspend {
             val changed = setBlock(pos, blockState, flags, nbt)
             success { writeBool(changed) }
         }
-        if (flags has ON_TICK) onTick(block) else block()
+        return if (flags has ON_TICK) Dispatchers[mc]{ block() } else block()
     }
 
     //TODO: put in abstract based class (AbstractSetBlockCmd) for SetBlocksCmd and FillCmd
     private fun setBlock(pos: BlockPos, blockState: BlockState, flags: Byte, nbt: CompoundTag?): Boolean {
+        if (world.isOutsideBuildHeight(pos)) return false
+
         if (flags has KEEP && world.getBlockState(pos).isAir)
             return false
 

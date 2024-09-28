@@ -1,7 +1,8 @@
 package dev.shblock.codecraft.core.cmd.cmds
 
-import dev.shblock.codecraft.core.CCAutoReg
 import dev.shblock.codecraft.core.cmd.CmdContext
+import dev.shblock.codecraft.core.cmd.CmdResult
+import dev.shblock.codecraft.core.registry.CCAutoReg
 import dev.shblock.codecraft.utils.CCByteBuf
 
 @Suppress("MemberVisibilityCanBePrivate")
@@ -10,12 +11,12 @@ class GetBlockCmd(context: CmdContext, buf: CCByteBuf) : AbstractWorldCmd(contex
     val pos = buf.readBlockPos()
     val nbt = buf.readBool()
 
-    override fun run() {
+    override suspend fun executeImpl(): CmdResult {
         val blockState = world.getBlockState(pos)
         val blockEntity = if (nbt) world.getBlockEntity(pos) else null
         val blockNBT = blockEntity?.saveWithoutMetadata(world.registryAccess())//TODO: custom impl for error detecting
 
-        success {
+        return success {
             writeBlockState(blockState)
             if (nbt) {
                 writeBool(blockEntity != null)

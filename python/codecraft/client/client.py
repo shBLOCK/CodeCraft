@@ -187,10 +187,10 @@ class CCClient:
     async def _run_cmd_coro(self, waiter: Awaitable[CmdResultMsg]) -> Optional[Any]:
         msg = await waiter
 
-        if msg.success:
+        if msg.successful:
             return msg.result
         else:
-            raise CmdError(msg.error)
+            raise CmdError(*msg.result)
 
     def batch_cmd(self):
         self.ensure_established()
