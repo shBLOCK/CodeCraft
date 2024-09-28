@@ -9,6 +9,6 @@ abstract class AbstractWorldCmd(context: CmdContext, buf: CCByteBuf) : Cmd(conte
     @Suppress("MemberVisibilityCanBePrivate")
     protected val worldKey = buf.readWorldKey(mc)
     val world by lazy {
-        mc.getLevel(worldKey) ?: error("Invalid dimension: $worldKey")
+        mc.getLevel(worldKey) ?: throw fail("Invalid dimension: $worldKey")
     }
 }
