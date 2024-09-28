@@ -137,18 +137,6 @@ class CCClient(
         }
     }
 
-//    /**
-//     * Should be called when a client disconnection
-//     * (not the server actively closing the connection)
-//     * is detected while sending / receiving.
-//     */
-//    private suspend fun onDisconnected() {
-//        val reason = if (session.incoming.isClosedForReceive) session.closeReason.await()
-//        session.launch {
-//            close(reason?.knownReason ?: CloseReason.Codes.VIOLATED_POLICY, reason?.message ?: "")
-//        }
-//    }
-
     private suspend fun sendRaw(buf: CCByteBuf) {
         try {
             session.send(buf)
@@ -220,9 +208,6 @@ class CCClient(
             )
         } catch (e: Exception) {
             logger.error("Internal error, disconnecting", e)
-//            val e = if (original !is ClientException.Internal) {
-//                ClientException.Internal("Unexpected internal error", original)
-//            } else original
             close(
                 CloseReason.Codes.INTERNAL_ERROR,
                 e.toString()
@@ -230,30 +215,6 @@ class CCClient(
         }
     }
 }
-
-//    /**
-//     * Represents disconnections caused by the client disconnecting voluntarily or a network failure.
-//     */
-//    @Suppress("MemberVisibilityCanBePrivate")
-//    class DisconnectedException internal constructor(
-//        val normal: Boolean,
-//        val closeReason: CloseReason?,
-//        private val msg: String? = null
-//    ) : CancellationException() {
-//
-//        override val message: String?
-//            get() {
-//                if (msg != null) return msg
-//                if (closeReason != null)
-//                    return "${closeReason.code} (${closeReason.knownReason?.name ?: "UNKNOWN"}) ${closeReason.message}"
-//                return null
-//            }
-//
-//        override fun toString(): String {
-//            return "DisconnectedException(${if (normal) "Normal" else "Abnormal"}: ${message ?: closeReason})"
-//        }
-//    }
-//}
 
 private suspend fun WebSocketSession.send(data: CCByteBuf) {
     val buf = data.nioBuffer()

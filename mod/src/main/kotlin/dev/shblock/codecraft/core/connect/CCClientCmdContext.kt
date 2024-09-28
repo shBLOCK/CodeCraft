@@ -11,10 +11,6 @@ class CCClientCmdContext(val client: CCClient) : CmdContext() {
     @Suppress("OVERRIDE_BY_INLINE")
     override inline val mc get() = client.mc
 
-//    @OptIn(ExperimentalStdlibApi::class)
-//    override val coroutineContext =
-//        super.coroutineContext + (client.coroutineContext[CoroutineDispatcher] ?: EmptyCoroutineContext)
-
     override val scope: CoroutineScope
         get() = client + SupervisorJob(client.coroutineContext[Job])
 

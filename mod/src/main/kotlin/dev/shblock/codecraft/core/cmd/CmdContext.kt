@@ -13,10 +13,6 @@ abstract class CmdContext {
 
     protected abstract val scope: CoroutineScope
 
-//    @OptIn(ExperimentalStdlibApi::class)
-//    override val coroutineContext: CoroutineContext =
-//        SupervisorJob() + CoroutineName("CmdContext@${super.hashCode().toHexString()}")
-
     @OptIn(ExperimentalStdlibApi::class)
     open val logger: Logger = LoggerFactory.getLogger("CmdContext(${super.hashCode().toHexString()})")
 
