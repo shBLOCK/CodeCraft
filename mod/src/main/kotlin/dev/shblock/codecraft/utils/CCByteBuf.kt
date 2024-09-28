@@ -25,13 +25,14 @@ import org.joml.Vector3i
 import java.nio.ByteBuffer
 import java.util.*
 import java.util.zip.CRC32C
+import kotlin.enums.enumEntries
 
 
 typealias CCEncodingException = EncoderException
 typealias CCDecodingException = DecoderException
 
 @Suppress("unused", "MemberVisibilityCanBePrivate")
-class CCByteBuf(private val data: FriendlyByteBuf) {
+class CCByteBuf(private val data: FriendlyByteBuf) : Any() {
     constructor(arr: ByteArray) : this(Unpooled.wrappedBuffer(arr))
 
     constructor(buf: ByteBuf) : this(FriendlyByteBuf(buf))
@@ -248,6 +249,9 @@ class CCByteBuf(private val data: FriendlyByteBuf) {
         val obj: T = registry.get(key) ?: throw CCEncodingException("Registry $registry doesn't contain key $key")
         writeUsingRegistry(obj, registry)
     }
+
+    inline fun <reified T : Enum<T>> readEnum() = enumEntries<T>()[readByte().toInt()]
+    fun writeEnum(entry: Enum<*>) = this.apply { writeByte(entry.ordinal.toByte()) }
 
     private fun <SH : StateHolder<*, SH>> readStateHolderValues(
         states: SH,
