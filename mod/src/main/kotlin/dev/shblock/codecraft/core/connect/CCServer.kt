@@ -19,6 +19,8 @@ import net.neoforged.neoforge.event.server.ServerStoppingEvent
 @EventBusSubscriber(modid = CodeCraft.MODID, bus = EventBusSubscriber.Bus.GAME)
 object CCServer {
     private val _clients: MutableCollection<CCClient> = mutableSetOf()
+
+    @Suppress("unused")
     val clients: Collection<CCClient>
         get() = _clients
 

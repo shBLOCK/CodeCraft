@@ -62,6 +62,7 @@ abstract class Cmd(val context: CmdContext, val uid: Int) {
          *
          * Use [kotlinx.coroutines.Dispatchers.Unconfined] to ensure that the [cmdProvider] gets executed before it suspends.
          */
+        @Suppress("UNUSED_PARAMETER")
         private suspend inline fun <T : Any> doExecute(
             context: CmdContext,
             resultHandler: CmdResultHandler<T>,
@@ -114,7 +115,7 @@ class CmdResult internal constructor(
     val successful get() = type == Type.SUCCESS
 }
 
-@Suppress("NOTHING_TO_INLINE")
+@Suppress("NOTHING_TO_INLINE", "unused")
 @ApiStatus.Internal
 class CmdRegistryEntry(id: ResourceLocation, clazz: KClass<out Cmd>) : ClassRegistryEntry<Cmd>(id, clazz) {
     val parserConstructor =
