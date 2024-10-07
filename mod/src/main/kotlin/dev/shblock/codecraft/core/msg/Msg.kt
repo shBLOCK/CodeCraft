@@ -1,13 +1,13 @@
 package dev.shblock.codecraft.core.msg
 
 import dev.shblock.codecraft.core.cmd.CmdContext
-import dev.shblock.codecraft.utils.CCByteBuf
+import dev.shblock.codecraft.utils.buf.BufWriter
 
 /**
  * A general server-to-client message, can be written to multiple contexts multiple times.
  */
 abstract class Msg {
-    abstract fun write(context: CmdContext, buf: CCByteBuf)
+    abstract fun write(context: CmdContext, buf: BufWriter<*>)
 }
 
 /**
@@ -16,7 +16,7 @@ abstract class Msg {
 abstract class ContextMsg(protected val context: CmdContext) : Msg() {
     private var written = false
 
-    override fun write(context: CmdContext, buf: CCByteBuf) {
+    override fun write(context: CmdContext, buf: BufWriter<*>) {
         if (written) throw IllegalStateException("ContextMsg can only be written once")
         if (context != this.context) throw IllegalStateException("Wrong context for ContextMsg $this: $context")
         written = true

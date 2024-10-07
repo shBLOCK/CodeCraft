@@ -1,11 +1,15 @@
 package dev.shblock.codecraft.core.connect
 
-import com.google.common.primitives.Longs
 import dev.shblock.codecraft.core.msg.Msg
 import dev.shblock.codecraft.core.registry.CCRegistries
-import dev.shblock.codecraft.utils.CCByteBuf
+import dev.shblock.codecraft.utils.CompletedJob
 import dev.shblock.codecraft.utils.UserSourcedException
+import dev.shblock.codecraft.utils.buf.BufReader
+import dev.shblock.codecraft.utils.buf.BufWriter
+import dev.shblock.codecraft.utils.buf.ByteBuf
+import dev.shblock.codecraft.utils.buf.writeByRegistry
 import dev.shblock.codecraft.utils.dimensions
+import dev.shblock.codecraft.utils.self
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*
 import kotlinx.coroutines.*
@@ -47,18 +51,18 @@ class CCClient(
         private set
 
     companion object {
-        private fun CCByteBuf.writeRegistryIdMapSyncPacket(registry: Registry<*>): CCByteBuf {
+        private fun <SELF : BufWriter<SELF>> BufWriter<SELF>.writeRegistryIdMapSyncPacket(registry: Registry<*>): SELF {
             writeResLoc(registry.key().location())
-            writeVarInt(registry.size())
+            writeUVarInt(registry.size().toUInt())
             for (name in registry.keySet()) {
                 writeVarInt(registry.getId(name))
                 writeResLoc(name)
             }
-            return this
+            return self
         }
 
         private val registrySyncPacket by lazy {
-            CCByteBuf().also { buf ->
+            ByteBuf().also { buf ->
                 arrayOf(
                     CCRegistries.CMD,
                     CCRegistries.MSG,
@@ -74,7 +78,7 @@ class CCClient(
     }
 
     private suspend fun establishSyncRegistryIdMap() {
-        sendRaw { writeByteArray(Longs.toByteArray(registrySyncPacketChecksum)) }
+        sendRaw { writeULong(registrySyncPacketChecksum) }
         val cached = receiveRaw().readBool()
         logger.debug("Establish: client registry map cached: $cached")
         if (!cached) {
@@ -138,6 +142,7 @@ class CCClient(
     }
 
     private suspend fun sendRaw(buf: CCByteBuf) {
+    private suspend fun sendRaw(buf: ByteBuf<*>) {
         try {
             session.send(buf)
         } catch (e: CancellationException) {
@@ -153,13 +158,13 @@ class CCClient(
         }
     }
 
-    private suspend fun sendRaw(writer: CCByteBuf.() -> Unit) {
-        val buf = CCByteBuf()
+    private suspend fun sendRaw(writer: BufWriter<*>.() -> Unit) {
+        val buf = ByteBuf()
         buf.writer()
         sendRaw(buf)
     }
 
-    private suspend fun receiveRaw(): CCByteBuf {
+    private suspend fun receiveRaw(): BufReader<*> {
         val frame = try {
             session.incoming.receive()
         } catch (e: CancellationException) {
@@ -172,13 +177,13 @@ class CCClient(
             throw e
         }
 
-        return CCByteBuf(frame.data)
+        return ByteBuf(frame.data)
     }
 
     suspend fun sendMsg(msg: Msg) { // TODO batching
         ensureActive()
         sendRaw {
-            writeUsingRegistry(msg::class, CCRegistries.MSG)
+            writeByRegistry(msg::class, CCRegistries.MSG)
             msg.write(cmdContext, this@sendRaw)
         }
     }
@@ -216,7 +221,6 @@ class CCClient(
     }
 }
 
-private suspend fun WebSocketSession.send(data: CCByteBuf) {
-    val buf = data.nioBuffer()
-    send(Frame.Binary(true, buf)) //TODO: optimize? (avoid copying)
+private suspend fun WebSocketSession.send(data: ByteBuf<*>) {
+    send(Frame.Binary(true, data.toByteArray())) //TODO: optimize? (avoid copying)
 }

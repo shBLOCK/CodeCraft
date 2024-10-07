@@ -3,7 +3,10 @@ package dev.shblock.codecraft.core.cmd.cmds
 import dev.shblock.codecraft.core.cmd.CmdContext
 import dev.shblock.codecraft.core.cmd.CmdResult
 import dev.shblock.codecraft.core.registry.CCAutoReg
-import dev.shblock.codecraft.utils.CCByteBuf
+import dev.shblock.codecraft.utils.buf.BufReader
+import dev.shblock.codecraft.utils.buf.readBlockPos
+import dev.shblock.codecraft.utils.buf.readByRegistryOrThrow
+import dev.shblock.codecraft.utils.buf.readNBTCompound
 import dev.shblock.codecraft.utils.eventloop.get
 import dev.shblock.codecraft.utils.has
 import kotlinx.coroutines.Dispatchers
@@ -17,13 +20,13 @@ import net.minecraft.world.level.block.state.BlockState
 //TODO: Block.updateFromNeighbourShapes
 @Suppress("MemberVisibilityCanBePrivate")
 @CCAutoReg("set_block")
-class SetBlockCmd(context: CmdContext, buf: CCByteBuf) : AbstractWorldCmd(context, buf) {
+class SetBlockCmd(context: CmdContext, buf: BufReader<*>) : AbstractWorldCmd(context, buf) {
     val pos = buf.readBlockPos()
-    private val flags = buf.readByte()
+    private val flags = buf.readUByte().toInt()
     val blockState: BlockState =
         if (flags has SET_STATE)
             buf.readBlockState()
-        else buf.readUsingRegistryOrThrow(BuiltInRegistries.BLOCK).value()
+        else buf.readByRegistryOrThrow(BuiltInRegistries.BLOCK).value()
             .defaultBlockState()
     val nbt = if (flags has SET_NBT) buf.readNBTCompound() else null
 
@@ -36,7 +39,7 @@ class SetBlockCmd(context: CmdContext, buf: CCByteBuf) : AbstractWorldCmd(contex
     }
 
     //TODO: put in abstract based class (AbstractSetBlockCmd) for SetBlocksCmd and FillCmd
-    private fun setBlock(pos: BlockPos, blockState: BlockState, flags: Byte, nbt: CompoundTag?): Boolean {
+    private fun setBlock(pos: BlockPos, blockState: BlockState, flags: Int, nbt: CompoundTag?): Boolean {
         if (world.isOutsideBuildHeight(pos)) return false
 
         if (flags has KEEP && world.getBlockState(pos).isAir)
@@ -69,12 +72,12 @@ class SetBlockCmd(context: CmdContext, buf: CCByteBuf) : AbstractWorldCmd(contex
     }
 
     private companion object {
-        const val SET_STATE = 1.toByte()
-        const val SET_NBT = 2.toByte()
-        const val ON_TICK = 4.toByte()
-        const val BLOCK_UPDATE = 8.toByte()
-        const val KEEP = 16.toByte()
-        const val DESTROY = 32.toByte()
-        const val DROP_ITEM = 64.toByte()
+        const val SET_STATE = 1
+        const val SET_NBT = 2
+        const val ON_TICK = 4
+        const val BLOCK_UPDATE = 8
+        const val KEEP = 16
+        const val DESTROY = 32
+        const val DROP_ITEM = 64
     }
 }

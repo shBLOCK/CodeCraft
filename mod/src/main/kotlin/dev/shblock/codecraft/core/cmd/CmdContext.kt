@@ -2,7 +2,7 @@ package dev.shblock.codecraft.core.cmd
 
 import dev.shblock.codecraft.core.msg.CmdResultMsg
 import dev.shblock.codecraft.core.msg.Msg
-import dev.shblock.codecraft.utils.CCByteBuf
+import dev.shblock.codecraft.utils.buf.BufReader
 import kotlinx.coroutines.*
 import net.minecraft.server.MinecraftServer
 import org.slf4j.Logger
@@ -18,7 +18,7 @@ abstract class CmdContext {
 
     open val active = true
 
-    internal fun executeCmdFromBufAndPostResult(buf: CCByteBuf): Job {
+    internal fun executeCmdFromBufAndPostResult(buf: BufReader<*>): Job {
         return scope.launch(Dispatchers.Unconfined) {
             try {
                 Cmd.executeFromBuf(this@CmdContext, buf, ::handleCmdResult)

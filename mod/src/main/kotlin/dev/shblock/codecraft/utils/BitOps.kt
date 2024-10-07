@@ -1,9 +1,9 @@
-@file:Suppress("NOTHING_TO_INLINE")
+@file:Suppress("NOTHING_TO_INLINE", "unused")
 
 package dev.shblock.codecraft.utils
 
-import kotlin.experimental.and
 
-inline infix fun Byte.has(flags: Byte) = this and flags != 0.toByte()
 inline infix fun Int.has(flags: Int) = this and flags != 0
+inline infix fun UInt.has(flags: UInt) = this and flags != 0u
 inline infix fun Long.has(flags: Long) = this and flags != 0L
+inline infix fun ULong.has(flags: ULong) = this and flags != 0uL
