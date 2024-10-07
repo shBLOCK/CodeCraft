@@ -77,6 +77,7 @@
         </list>
       </option>
     </inspection_tool>
+    <inspection_tool class="ReplaceRangeToWithRangeUntil" enabled="false" level="WEAK WARNING" enabled_by_default="false" />
     <inspection_tool class="WrsTopicContentTopicUnused" enabled="false" level="WEAK WARNING" enabled_by_default="false" />
   </profile>
 </component>
