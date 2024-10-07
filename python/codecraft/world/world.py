@@ -63,8 +63,8 @@ class World(Registered["World", DefaultedInstantiatingRegistry["World"]], LazyDe
         if set_state:
             flags |= SetBlockFlags.SET_STATE
 
-        # if set_nbt and block.nbt:
-        #     flags |= SetBlockFlags.SET_NBT
+        if set_nbt and block.nbt:
+            flags |= SetBlockFlags.SET_NBT
 
         return _cc().run_cmd(SetBlockCmd(self, pos, block, flags))
 

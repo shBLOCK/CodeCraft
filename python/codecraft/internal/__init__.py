@@ -1,7 +1,7 @@
 from . import cmd
 from . import msg
 
-from .byte_buf import CCByteBuf
+from .byte_buf import ByteBuf
 from .valued_event import ValuedEvent
 from .metaclass import add_to_slots
 from .resource import ResLoc, ResLocLike

@@ -8,9 +8,9 @@ from codecraft.internal.registry import TypeRegistry, Registered
 
 if TYPE_CHECKING:
     from codecraft.client import CCClient
-    from codecraft.internal import CCByteBuf
+    from codecraft.internal.byte_buf.byte_buf import ByteBuf
 
 
 class Msg(ABC, Registered["Msg", TypeRegistry], registry_name=ResLoc.codecraft("msg")):
     @abstractmethod
-    def __init__(self, buf: CCByteBuf, client: CCClient): ...
+    def __init__(self, buf: ByteBuf, client: CCClient): ...

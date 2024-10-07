@@ -128,6 +128,8 @@ dependencies {
     // Use slim artifact of KFF to avoid kotlin lib conflictions
     implementation("thedarkcolour:kotlinforforge-neoforge:$kff_version:slim")
 
+    kotlinLibs("org.jetbrains.kotlinx:kotlinx-io-core-jvm:$kotlinx_io_version")
+
     kotlinLibs("io.ktor:ktor-server-core-jvm:$ktor_version")
     kotlinLibs("io.ktor:ktor-server-websockets-jvm:$ktor_version")
     kotlinLibs("io.ktor:ktor-server-netty-jvm:$ktor_version")

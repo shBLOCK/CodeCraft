@@ -17,10 +17,12 @@ import net.neoforged.neoforge.registries.RegistryBuilder
 import net.neoforged.neoforge.registries.callback.AddCallback
 import net.neoforged.neoforgespi.language.IModFileInfo
 import java.lang.annotation.ElementType
+import java.lang.reflect.InvocationTargetException
 import kotlin.reflect.KClass
 import kotlin.reflect.full.findParameterByName
 import kotlin.reflect.full.isSubclassOf
 import kotlin.reflect.full.primaryConstructor
+import kotlin.reflect.full.valueParameters
 
 
 @Target(AnnotationTarget.CLASS)
@@ -38,7 +40,41 @@ open class ClassRegistryEntry<out T : Any>(
     open val clazz: KClass<out T>
 )
 
-class ClassRegistry<T : Any, E : ClassRegistryEntry<T>> internal constructor(
+class ConstructingClassRegistryEntry<out T : Any>(
+    id: ResourceLocation,
+    clazz: KClass<out T>,
+    constructorParams: List<KClass<out Any>>,
+    constructorRequired: Boolean
+) : ClassRegistryEntry<T>(id, clazz) {
+
+    val constructor =
+        clazz.constructors.find {
+            if (it.valueParameters.size != constructorParams.size)
+                return@find false
+            for ((param, clz) in it.valueParameters zip constructorParams) {
+                if (!clz.isSubclassOf(param.type.classifier as KClass<*>))
+                    return@find false
+            }
+            true
+        }
+
+    init {
+        if (constructorRequired) throw IllegalArgumentException("No valid constructor found in $clazz")
+    }
+
+    val constructable get() = constructor != null
+
+    @Suppress("NOTHING_TO_INLINE")
+    inline fun construct(vararg params: Any): T {
+        try {
+            return constructor!!.call(*params)
+        } catch (e: InvocationTargetException) {
+            throw e.cause!!
+        }
+    }
+}
+
+class ClassRegistry<T : Any, out E : ClassRegistryEntry<T>> internal constructor(
     val registry: WritableRegistry<KClass<out T>>,
     val entryFactory: (ResourceLocation, KClass<out T>) -> E,
     val baseClass: KClass<out T>
