@@ -11,15 +11,15 @@ if TYPE_CHECKING:
     from typing import Optional, Any
 
     from codecraft.client import CCClient
-    from codecraft.internal import CCByteBuf
+    from ..byte_buf.byte_buf import ByteBuf
 
 
 # noinspection PyProtectedMember
 class CmdResultMsg(Msg, reg_name=ResLoc.codecraft("cmd_result")):
     @override
-    def __init__(self, buf: CCByteBuf, client: CCClient):
+    def __init__(self, buf: ByteBuf, client: CCClient):
         super().__init__(buf, client)
-        self.cmd_uid = buf.read_varint()
+        self.cmd_uid = buf.read_uvarint()
         cmd = client._msg_queue._pop_running_cmd(self.cmd_uid)
         if cmd is None:
             raise NetworkError(f"No command with uid {self.cmd_uid}")

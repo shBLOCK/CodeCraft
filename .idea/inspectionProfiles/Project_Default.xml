@@ -67,6 +67,8 @@
           <option value="id" />
           <option value="hash" />
           <option value="all" />
+          <option value="min" />
+          <option value="max" />
         </list>
       </option>
     </inspection_tool>

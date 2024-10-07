@@ -2,7 +2,7 @@ numpy==2.1.0
 websockets==13.0
 spatium==1.5.5
 mutf8==1.0.6
-amulet-nbt==4.0.0a1
+amulet-nbt==4.0.0a3
 crc32c==2.6
 PyYAML==6.0.2
 colorama==0.4.6

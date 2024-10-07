@@ -23,7 +23,7 @@ class Cmd(ABC, Registered["Cmd", TypeRegistry], registry_name=ResLoc.codecraft("
         if self._uid is not None:
             raise ValueError("_write() can only be called once for every Cmd object")
         self._uid = client._next_cmd_uid()
-        buf.write_varint(self._uid)
+        buf.write_uvarint(self._uid)
 
     # noinspection PyMethodMayBeStatic
     def _parse_result(self, buf: CCByteBuf, client: CCClient) -> Any:

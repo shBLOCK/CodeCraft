@@ -5,7 +5,7 @@ from asyncio import Task
 from typing import TYPE_CHECKING, override
 from abc import ABC, abstractmethod
 
-from codecraft.internal import CCByteBuf
+from codecraft.internal.byte_buf.byte_buf import ByteBuf
 from codecraft.internal.msg import CmdResultMsg
 
 if TYPE_CHECKING:
@@ -26,7 +26,7 @@ class CmdRunner(ABC):
 class SimpleCmdRunner(CmdRunner):
     @override
     async def _run_cmd(self, cmd: Cmd):
-        buf = CCByteBuf(client=self._client)
+        buf = ByteBuf(client=self._client)
         buf.write_using_id_map(self._client.reg_id_maps.cmd, type(cmd))
         cmd._write(buf, self._client)
 
@@ -42,7 +42,7 @@ class BatchingCmdRunner(CmdRunner):
     def __init__(self, client: CCClient):
         super().__init__(client)
         self._old_cmd_runner: CmdRunner
-        self._buffer = CCByteBuf(client=self._client)
+        self._buffer = ByteBuf(client=self._client)
         self._waiters: list[Task] = []
 
     async def __aenter__(self):
@@ -55,12 +55,12 @@ class BatchingCmdRunner(CmdRunner):
         if exc_val is not None:
             for waiter in self._waiters:
                 waiter.cancel("Command wasn't sent")
-            self._buffer = CCByteBuf(client=self._client)
+            self._buffer = ByteBuf(client=self._client)
             self._waiters.clear()
             return False
 
         await self._client.send_raw(self._buffer)
-        self._buffer = CCByteBuf(client=self._client)
+        self._buffer = ByteBuf(client=self._client)
         self._waiters.clear()
 
     @override

@@ -9,8 +9,8 @@ from codecraft.log.log import LOGGER
 
 if TYPE_CHECKING:
     from typing import Optional, Self
+    from codecraft.internal.byte_buf.byte_buf import ByteBuf
 
-    from codecraft.internal import CCByteBuf
     from codecraft.client import CCClient
 
 CACHE_DIR = "registryIdMapCache"
@@ -38,18 +38,17 @@ class RegistryIdMaps:
         self.entity = add(RegistryIdMap("entity_type"))
         self.world = add(RegistryIdMap(World.registry))
 
-    def read_sync_packet(self, buf: CCByteBuf):
+    def read_sync_packet(self, buf: ByteBuf):
         name = buf.read_resloc()
+        self._client.logger.debug(f"Reading registry id map: {name}")
         id_map = self._maps.get(name)
         if id_map is None:
             self._client.logger.warning(f"Received registry id map sync packet with unknown registry {name}")
-        for _ in range(buf.read_varint()):
+        for _ in range(buf.read_uvarint()):
             id = buf.read_varint()
             reg_name = buf.read_resloc()
             if id_map is not None:
                 id_map.put(id, reg_name)
-
-        self._client.logger.debug(f"Reading registry id map: {name}")
 
     def save_cache(self, name: str):
         write_meta_file(

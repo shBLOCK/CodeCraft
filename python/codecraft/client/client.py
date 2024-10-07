@@ -14,10 +14,10 @@ from .msg_queue import MsgQueue
 from .connection import Connection
 from .cmd_runner import SimpleCmdRunner, CmdRunner, BatchingCmdRunner
 from codecraft.log.log import LOGGER
-from codecraft.internal.byte_buf import CCByteBuf
 from codecraft.coro import auto_async
 from codecraft.coro import set_task_name
 from codecraft.internal.error import NetworkError, CmdError
+from ..internal.byte_buf.byte_buf import ByteBuf
 
 if TYPE_CHECKING:
     from typing import Optional, Self, Any
@@ -73,21 +73,22 @@ class CCClient:
         return self._msg_queue
 
     async def _establish_sync_registry_id_map(self):
-        hash = (await self.recv_raw()).read_bytes()
-        self._logger.debug(f"Server registry id maps hash: {hash.hex().upper()}")
-        # self._id_maps = RegistryIdMaps.load_cache(hash.hex().upper(), self) # TODO: configurable
+        checksum = (await self.recv_raw()).read_ulong()
+        checksum = f"{checksum:016X}"
+        self._logger.debug(f"Server registry id maps checksum: {checksum}")
+        # self._id_maps = RegistryIdMaps.load_cache(hash, self) # TODO: configurable
         self._id_maps = None
         if self._id_maps is not None:  # cached
             self._logger.debug("Loaded registry id map from cache")
-            await self.send_raw(CCByteBuf().write_bool(True))
+            await self.send_raw(ByteBuf().write_bool(True))
         else:  # not cached
-            await self.send_raw(CCByteBuf().write_bool(False))
+            await self.send_raw(ByteBuf().write_bool(False))
             sync_packets = await self.recv_raw()
             self._id_maps = RegistryIdMaps(self)
             while sync_packets.remaining:
                 self._id_maps.read_sync_packet(sync_packets)
             self._logger.debug("Received registry id maps")
-            self._id_maps.save_cache(hash.hex().upper())
+            self._id_maps.save_cache(checksum)
 
     @property
     def reg_id_maps(self) -> RegistryIdMaps:
@@ -117,7 +118,7 @@ class CCClient:
 
         await self._establish_sync_registry_id_map()
 
-        await self.send_raw(CCByteBuf().write_bool(True))
+        await self.send_raw(ByteBuf().write_bool(True))
         self._established = True
 
         asyncio.run_coroutine_threadsafe(self._msg_queue._start(), self._conn.loop).result()
@@ -158,7 +159,7 @@ class CCClient:
         if threading.current_thread().is_alive():
             self.close("CCClient object destructing", CloseCode.GOING_AWAY)
 
-    async def send_raw(self, buf: CCByteBuf) -> Self:
+    async def send_raw(self, buf: ByteBuf) -> Self:
         try:
             await self._conn.send(buf.written_view)
         except ConnectionClosed as e:
@@ -166,7 +167,7 @@ class CCClient:
             raise NetworkError(f"Connection closed: {str(e)}") from e
         return self
 
-    async def recv_raw(self) -> CCByteBuf:
+    async def recv_raw(self) -> ByteBuf:
         try:
             frame = await self._conn.recv()
         except ConnectionClosed as e:
@@ -177,7 +178,7 @@ class CCClient:
             _ = asyncio.create_task(self.close("Received invalid string frame", CloseCode.POLICY_VIOLATION))
             raise NetworkError(f"Invalid frame format: string")
 
-        return CCByteBuf(frame, client=self)
+        return ByteBuf(frame, client=self)
 
     def run_cmd(self, cmd: Cmd):
         self.ensure_established()
