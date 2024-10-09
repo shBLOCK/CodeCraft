@@ -121,7 +121,7 @@ class ByteBuf:
     def __getitem__(self, item: slice):
         """Create a view of a slice in this buffer."""
         if not isinstance(item, slice):
-            raise TypeError("CCByteBuf only supports slicing")
+            raise TypeError("ByteBuf only supports slicing")
         result = ByteBuf()
         result._buffer = memoryview(self._buffer)[item]
         return result

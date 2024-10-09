@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from typing import Optional, Any
 
     from codecraft.client import CCClient
-    from codecraft.internal import CCByteBuf
+    from codecraft.internal.byte_buf import ByteBuf
 
 
 class Cmd(ABC, Registered["Cmd", TypeRegistry], registry_name=ResLoc.codecraft("cmd")):
@@ -19,7 +19,7 @@ class Cmd(ABC, Registered["Cmd", TypeRegistry], registry_name=ResLoc.codecraft("
         self._uid: Optional[int] = None
 
     # noinspection PyProtectedMember
-    def _write(self, buf: CCByteBuf, client: CCClient):
+    def _write(self, buf: ByteBuf, client: CCClient):
         if self._uid is not None:
             raise ValueError("_write() can only be called once for every Cmd object")
         self._uid = client._next_cmd_uid()
