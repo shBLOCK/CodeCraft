@@ -59,10 +59,10 @@ class CCClient:
         # also set by BatchingCmdRunner
         self._cmd_runner: CmdRunner = SimpleCmdRunner(self)
 
+        self._lifecycle_lock = threading.Lock()
+
         if establish:
             self.establish()
-
-        self._lifecycle_lock = threading.Lock()
 
     def _next_cmd_uid(self) -> int:
         self.__cmd_uid += 1
