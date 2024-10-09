@@ -199,7 +199,7 @@ class CCClient(
                     return
                 }
 
-                while (buf.readableBytes > 0) {
+                while (!buf.exhausted) {
                     cmdContext.executeCmdFromBufAndPostResult(buf)
                 }
             }
