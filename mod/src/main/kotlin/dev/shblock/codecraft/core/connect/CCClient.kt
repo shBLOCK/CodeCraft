@@ -141,7 +141,6 @@ class CCClient(
         }
     }
 
-    private suspend fun sendRaw(buf: CCByteBuf) {
     private suspend fun sendRaw(buf: ByteBuf<*>) {
         try {
             session.send(buf)
