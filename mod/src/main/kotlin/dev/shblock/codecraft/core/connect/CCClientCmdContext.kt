@@ -12,7 +12,7 @@ class CCClientCmdContext(val client: CCClient) : CmdContext() {
     override inline val mc get() = client.mc
 
     override val scope: CoroutineScope
-        get() = client + SupervisorJob(client.coroutineContext[Job])
+        get() = client.scope + SupervisorJob(client.scope.coroutineContext[Job])
 
     @Suppress("OVERRIDE_BY_INLINE")
     override inline val logger: Logger
@@ -28,13 +28,11 @@ class CCClientCmdContext(val client: CCClient) : CmdContext() {
             logger.error("Unexpected error in $this", exception)
         }
 
-        withContext(NonCancellable) {
-            client.launch(Dispatchers.Unconfined) {
-                client.close(
-                    if (exception is UserSourcedException) CloseReason.Codes.VIOLATED_POLICY else CloseReason.Codes.INTERNAL_ERROR,
-                    exception.toString()
-                )
-            }
+        client.scope.launch(Dispatchers.Unconfined) {
+            client.close(
+                if (exception is UserSourcedException) CloseReason.Codes.VIOLATED_POLICY else CloseReason.Codes.INTERNAL_ERROR,
+                exception.toString()
+            )
         }
     }
 

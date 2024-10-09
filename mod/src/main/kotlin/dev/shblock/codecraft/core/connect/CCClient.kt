@@ -25,7 +25,7 @@ import org.slf4j.LoggerFactory
 class CCClient(
     private val session: DefaultWebSocketServerSession,
     val mc: MinecraftServer
-) : CoroutineScope by session {
+) {
     var logger: Logger = LoggerFactory.getLogger(
         "CCClient(${session.call.request.local.remoteAddress}:${session.call.request.local.remotePort})"
     )
@@ -34,6 +34,8 @@ class CCClient(
     init {
         logger.info("Accepted")
     }
+
+    internal inline val scope: CoroutineScope get() = session
 
     private lateinit var _cmdContext: CCClientCmdContext
     val cmdContext: CCClientCmdContext
@@ -83,8 +85,8 @@ class CCClient(
         logger.debug("Establish: client registry map cached: $cached")
         if (!cached) {
             sendRaw(registrySyncPacket)
+            logger.debug("Establish: registry sync packet sent")
         }
-        logger.debug("Establish: registry sync packet sent")
     }
 
     suspend fun establish() {
@@ -118,27 +120,34 @@ class CCClient(
      * the original close reason would be used instead of that from the parameters
      */
     suspend fun close(code: CloseReason.Codes = CloseReason.Codes.VIOLATED_POLICY, message: String = ""): CloseReason {
-        return withContext(NonCancellable) {
-            closeMutex.withLock {
-                val reason =
+        val deferred = scope.async {
+            withContext(NonCancellable) {
+                closeMutex.withLock {
+                    val reason =
+                        @OptIn(DelicateCoroutinesApi::class)
+                        if (session.incoming.isClosedForReceive)
+                            session.closeReason.await() ?: CloseReason(
+                                CloseReason.Codes.VIOLATED_POLICY,
+                                "Unknown reason"
+                            )
+                        else
+                            CloseReason(code, message)
+
+                    if (lifecycle == Lifecycle.CLOSED) return@withLock reason
+
+                    if (lifecycle == Lifecycle.ACTIVE) cmdContext.close()
+                    lifecycle = Lifecycle.CLOSED
+                    logger.info("Closing connection: ${reason.knownReason?.name}, \"${reason.message}\"")
                     @OptIn(DelicateCoroutinesApi::class)
-                    if (session.incoming.isClosedForReceive)
-                        session.closeReason.await() ?: CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Unknown reason")
-                    else
-                        CloseReason(code, message)
+                    if (!session.incoming.isClosedForReceive) runCatching { session.close(reason) }
+                    session.cancel("Closing: ${reason.knownReason?.name}, \"${reason.message}\"")
 
-                if (lifecycle == Lifecycle.CLOSED) return@withLock reason
-
-                cmdContext.close()
-                lifecycle = Lifecycle.CLOSED
-                logger.info("Closing connection: ${reason.knownReason?.name}, \"${reason.message}\"")
-                @OptIn(DelicateCoroutinesApi::class)
-                if (!session.incoming.isClosedForReceive) runCatching { session.close(reason) }
-                session.cancel("Closing: ${reason.knownReason?.name}, \"${reason.message}\"")
-
-                return@withLock reason
+                    return@withLock reason
+                }
             }
         }
+
+        return deferred.await()
     }
 
     private suspend fun sendRaw(buf: ByteBuf<*>) {

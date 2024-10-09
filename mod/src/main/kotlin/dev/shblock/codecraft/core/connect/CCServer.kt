@@ -54,11 +54,11 @@ object CCServer {
                     try {
                         client.establish()
                     } catch (e: Exception) {
+                        client.logger.warn("Failed to establish client", e)
                         client.close(
                             CloseReason.Codes.VIOLATED_POLICY,
                             "Failed to establish: $e"
                         )
-                        client.logger.warn("Failed to establish client", e)
                         return@webSocket
                     }
 
@@ -91,7 +91,7 @@ object CCServer {
         CodeCraft.LOGGER.info("CodeCraft server stopping...")
         running = false
         _clients.forEach {
-            it.apply { launch { close(CloseReason.Codes.GOING_AWAY, "Server shutting down") } }
+            it.apply { scope.launch { close(CloseReason.Codes.GOING_AWAY, "Server shutting down") } }
         }
         server!!.stop(
             gracePeriodMillis = Config.Server.shutdownGracePeriod.toLong(),
