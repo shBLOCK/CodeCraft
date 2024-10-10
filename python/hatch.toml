@@ -1,0 +1,4 @@
+[envs.default]
+path = "venv"
+type = "virtual"
+python = "3.13"
