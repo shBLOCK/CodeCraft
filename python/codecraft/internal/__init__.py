@@ -5,7 +5,7 @@ from .byte_buf import ByteBuf
 from .valued_event import ValuedEvent
 from .metaclass import add_to_slots
 from .resource import ResLoc, ResLocLike
-from .meta_files import read_meta_file, write_meta_file
+from .meta_folder import meta_path
 from .id_map import IdMap, RegistryIdMap
 from .registry import (
     Registered,

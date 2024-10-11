@@ -1,6 +1,19 @@
 [project]
 name = "codecraft"
 version = "0.1.0"
+
+dependencies = [
+    "numpy==2.1.2",
+    "websockets==13.1",
+    "spatium==1.5.5",
+    "amulet-nbt==4.0.0a3",
+    "crc32c==2.7.1",
+    "PyYAML==6.0.2",
+    "colorama==0.4.6",
+    "pydantic==2.9.2",
+    "pydantic-settings==2.5.2"
+]
+
 readme = "../README.md"
 requires-python = ">=3.13"
 license = "LGPL-3.0-or-later"
@@ -11,16 +24,6 @@ keywords = [
     "minecraft",
     "education",
     "codecraft"
-]
-
-dependencies = [
-    "numpy==2.1.2",
-    "websockets==13.1",
-    "spatium==1.5.5",
-    "amulet-nbt==4.0.0a3",
-    "crc32c==2.7.1",
-    "PyYAML==6.0.2",
-    "colorama==0.4.6"
 ]
 
 [project.urls]

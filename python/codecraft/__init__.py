@@ -2,7 +2,9 @@ from . import log
 
 # TODO: lazy module importing (see: https://github.com/pyglet/pyglet/blob/master/pyglet/__init__.py)
 
-log.configure_logger("DEBUG")  # TODO: make logging configurable
+from . import config
+
+log.configure_logger(config.CCConfig.log_level)
 
 # noinspection PyProtectedMember
 log._cc_init_begin()
