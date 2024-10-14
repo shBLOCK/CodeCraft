@@ -1,6 +1,6 @@
 <div align="center">
 <p align="center">
-    <img src="misc/icon.png" alt="icon" height="50">
+    <img src="misc/icon.png" alt="icon" height="50" align="center">
     <img src="misc/title.png" alt="title" height="60">
 </p>
 
