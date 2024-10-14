@@ -1,6 +1,6 @@
 <div align="center">
 <p align="center">
-    <img src="misc/icon.png" alt="icon" height="60">
+    <img src="misc/icon.png" alt="icon" height="50">
     <img src="misc/title.png" alt="title" height="60">
 </p>
 
@@ -28,7 +28,7 @@
     - Trying to **research the RNG algorithm**?<br>
       Use CodeCraft to step through every tick, inspect the RNG state. Or even hook into each RNG call by writing a
       simple CodeCraft extension.
-- **Creative Coding**: use CodeCraft to make **cool thing** in Minecraft!
+- **Creative Coding**: use CodeCraft to make **cool things** in Minecraft!
     - Animations videos
     - Fractals
     - Bad Apple videos
