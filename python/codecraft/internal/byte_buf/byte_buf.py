@@ -602,19 +602,17 @@ class ByteBuf:
     def read_nbt(self) -> AnyNBT:
         # TODO: big hack to workaround Amulet-NBT not supporting unnamed tag,
         #   remove when https://github.com/Amulet-Team/Amulet-NBT/issues/88 resolves
-        data = bytes((self._buffer[self._pos], 0, 0))
-        self._pos += 1
-        data += self.to_read_view.tobytes()
         # noinspection PyArgumentList
-        ctx = ReadOffset()
+        ctx = ReadOffset(self._pos)
         result = amulet_nbt.read_nbt(
-            data,
+            self._buffer,
             compressed=False,
             little_endian=False,
             string_encoding=amulet_nbt.utf8_encoding,
+            named=False,
             read_offset=ctx
         )
-        self._pos += ctx.offset
+        self._pos = ctx.offset
         return result.tag
 
     def read_nbt_compound(self) -> CompoundTag:
@@ -625,17 +623,14 @@ class ByteBuf:
 
     def write_nbt(self, value: AnyNBT) -> Self:
         with self.__writing_type(BufPrimitive.NBT):
-            data = value.to_nbt(
-                compressed=False,
-                little_endian=False,
-                string_encoding=amulet_nbt.utf8_encoding
+            self._write_buffer(
+                value.to_nbt(
+                    name=None,
+                    compressed=False,
+                    little_endian=False,
+                    string_encoding=amulet_nbt.utf8_encoding
+                )
             )
-            # TODO: workaround Amulet-NBT not supporting unnamed tag,
-            #   remove when https://github.com/Amulet-Team/Amulet-NBT/issues/88 resolves
-            self._allocate_to_fit(len(data) - 2)
-            self._buffer[self._size] = data[0]
-            self._size += 1
-            self._write_buffer(memoryview(data)[3:])
         return self
 
     def read_blockstate(self) -> Block:

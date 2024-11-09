@@ -6,7 +6,7 @@ dependencies = [
     "numpy==2.1.2",
     "websockets==13.1",
     "spatium==1.5.5",
-    "amulet-nbt==4.0.0a3",
+    "amulet-nbt==4.0.0a5",
     "crc32c==2.7.1",
     "PyYAML==6.0.2",
     "colorama==0.4.6",
