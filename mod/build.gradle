@@ -77,10 +77,9 @@ neoForge {
     }
 }
 
-// Hack to fix Netty dependency conflicts: we simple force all configurations to use Minecraft's Netty versions
+// Hack to fix dependency conflicts: we simply force all configurations to use Minecraft's Netty versions
 
-def mcNettyVersion
-def mcNettyDeps = []
+def mcDeps = []
 configurations { mcDepsGetter {} }
 dependencies { mcDepsGetter("net.neoforged:minecraft-dependencies:$minecraft_version") }
 
@@ -89,21 +88,22 @@ configurations {
 
     // get MC Netty libs
     mcDepsGetter.resolvedConfiguration.getResolvedArtifacts().each {
-        if (it.moduleVersion.id.group == "io.netty") {
-            println("MC Netty dependency: $it.moduleVersion.id")
-            mcNettyDeps.add(it.moduleVersion.id)
+        if (it.moduleVersion.id.group == "io.netty"
+            || it.moduleVersion.id.group == "org.slf4j") {
+            println("MC Dependency: $it.moduleVersion.id")
+            mcDeps.add(it.moduleVersion.id)
         }
     }
 
-    // get MC Netty version
-    mcNettyVersion = mcNettyDeps.getFirst().version
-    println("MC Netty version: $mcNettyVersion")
+//    // get MC Netty version
+//    mcNettyVersion = mcDeps.getFirst().version
+//    println("MC Netty version: $mcNettyVersion")
 
     configureEach { cfg ->
         if (cfg != mcDepsGetter && !cfg.name.startsWith("neoForm")) {
             // force MC Netty module versions
             resolutionStrategy {
-                mcNettyDeps.each {
+                mcDeps.each {
                     force(it.toString())
                 }
 
@@ -142,7 +142,7 @@ dependencies {
     // Add dependencies to Jar-In-Jar
     configurations.kotlinLibs.resolvedConfiguration.resolvedArtifacts.each {
         def dep = it.moduleVersion.id
-        if (dep in mcNettyDeps || dep.group == "org.slf4j") {
+        if (dep in mcDeps || dep.group == "org.slf4j") {
             println("Ignoring $dep for Jar-In-Jar: included by MC")
         } else if (
             dep.group == "org.jetbrains.kotlin"
@@ -170,7 +170,7 @@ dependencies {
     }
 
     // TheOneProbe
-    implementation("curse.maven:theoneprobe-245211:$top_version_id")
+//    implementation("curse.maven:theoneprobe-245211:$top_version_id")
 
     // JourneyMap
     implementation("curse.maven:journeymap-32274:$journeymap_version_id")
@@ -181,16 +181,14 @@ dependencies {
     api("me.shedaniel:RoughlyEnoughItems-neoforge:$rei_version")
 
     // CC:Tweaked
-    compileOnly("cc.tweaked:cc-tweaked-$minecraft_version-core-api:$cct_version")
-    compileOnly("cc.tweaked:cc-tweaked-$minecraft_version-forge-api:$cct_version")
+    compileOnly("cc.tweaked:cc-tweaked-$cct_minecraft-core-api:$cct_version")
+    compileOnly("cc.tweaked:cc-tweaked-$cct_minecraft-forge-api:$cct_version")
     // TODO: figure out how to avoid `netty-codec-http` (jar-in-jar) confliction
 //    runtimeOnly("cc.tweaked:cc-tweaked-$minecraft_version-forge:$cct_version")
 
     // LittleTiles
-//    compileOnly("curse.maven:creativecore-257814:5649812")
-    implementation("curse.maven:creativecore-257814:5649811")
-//    compileOnly("curse.maven:littletiles-257818:5676707")
-    implementation("curse.maven:littletiles-257818:5676706")
+//    implementation("curse.maven:creativecore-257814:5880278")
+//    implementation("curse.maven:littletiles-257818:5877690")
 }
 
 repositories {

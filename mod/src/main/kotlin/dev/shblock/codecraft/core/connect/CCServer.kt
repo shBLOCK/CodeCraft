@@ -24,7 +24,7 @@ object CCServer {
     val clients: Collection<CCClient>
         get() = _clients
 
-    private var server: ApplicationEngine? = null
+    private var server: EmbeddedServer<NettyApplicationEngine, NettyApplicationEngine.Configuration>? = null
 
     var running = false
         private set
@@ -40,8 +40,7 @@ object CCServer {
         server = embeddedServer(
             Netty,
             port = 6767,
-            watchPaths = emptyList(),
-            configure = {}
+            watchPaths = emptyList()
         ) {
             install(WebSockets) {
 //                pingPeriod = Duration.ofSeconds(5)

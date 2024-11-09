@@ -5,4 +5,4 @@ import net.minecraft.core.registries.Registries
 import net.minecraft.server.MinecraftServer
 import net.minecraft.world.level.Level
 
-fun MinecraftServer.dimensions(): Registry<Level> = registryAccess().registryOrThrow(Registries.DIMENSION)
+fun MinecraftServer.dimensions(): Registry<Level> = registryAccess().lookupOrThrow(Registries.DIMENSION)

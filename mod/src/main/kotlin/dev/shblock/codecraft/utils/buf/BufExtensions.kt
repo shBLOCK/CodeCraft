@@ -107,11 +107,11 @@ inline fun BufWriter<*>.write(value: FluidState) { writeFluidState(value) }
 
 //region Registry
 inline fun <T> BufReader<*>.readByRegistry(registry: Registry<T>): Holder.Reference<T>? =
-    registry.getHolder(readVarInt()).orElse(null)
+    registry[readVarInt()].orElse(null)
 
 inline fun <T> BufReader<*>.readByRegistryOrThrow(registry: Registry<T>): Holder.Reference<T> {
     val id = readVarInt()
-    return registry.getHolder(id).orElseThrow {
+    return registry[id].orElseThrow {
         BufException(
             "Invalid id $id for registry ${
                 registry.key().location()
@@ -147,7 +147,7 @@ inline fun <T : Any, SELF : BufWriter<SELF>> BufWriter<SELF>.writeByRegistry(
     registry: Registry<T>
 ) =
     self.also {
-        val obj: T = registry.get(key) ?: throw BufException("Registry $registry doesn't contain key $key")
+        val obj: T = registry.getValue(key) ?: throw BufException("Registry $registry doesn't contain key $key")
         writeByRegistry(obj, registry)
     }
 //endregion
