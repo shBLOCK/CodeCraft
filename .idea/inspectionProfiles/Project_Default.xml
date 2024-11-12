@@ -69,6 +69,7 @@
           <option value="all" />
           <option value="min" />
           <option value="max" />
+          <option value="dir" />
         </list>
       </option>
     </inspection_tool>
