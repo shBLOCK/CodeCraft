@@ -2,3 +2,7 @@
 path = "venv"
 type = "virtual"
 python = "3.13"
+dependencies = [
+    "tqdm",
+    "winloop==0.1.7"
+]
