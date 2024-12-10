@@ -62,7 +62,7 @@ neoForge {
          } */
 
         data {
-            data()
+            clientData()
             // workingDirectory project.file('run-data')
 
             // Specify the modid for data generation, where to output the resulting resource, and where to look for existing resources.
@@ -128,6 +128,7 @@ dependencies {
     // Use slim artifact of KFF to avoid kotlin lib conflictions
     implementation("thedarkcolour:kotlinforforge-neoforge:$kff_version:slim")
 
+    kotlinLibs("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:$kotlinx_serialization_version")
     kotlinLibs("org.jetbrains.kotlinx:kotlinx-io-core-jvm:$kotlinx_io_version")
 
     kotlinLibs("io.ktor:ktor-server-core-jvm:$ktor_version")

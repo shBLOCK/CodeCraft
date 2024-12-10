@@ -13,8 +13,8 @@
     </facet>
   </component>
   <component name="McpModuleSettings">
-    <option name="minecraftVersion" value="1.21.3" />
-    <option name="platformVersion" value="21.3.28-beta" />
+    <option name="minecraftVersion" value="1.21.4" />
+    <option name="platformVersion" value="21.4.11-beta" />
     <option name="srgType" value="TSRG" />
   </component>
   <component name="PackageRequirementsSettings">
